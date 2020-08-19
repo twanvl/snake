@@ -125,6 +125,16 @@ public:
   {
     std::fill(begin(), end(), init);
   }
+  Grid(Grid const& that)
+    : data(new T[w*h])
+  {
+    std::copy(that.begin(), that.end(), data);
+  }
+  Grid(Grid&& that)
+    : data(that.data)
+  {
+    that.data = nullptr;
+  }
   ~Grid() {
     delete[] data;
   }
@@ -141,6 +151,10 @@ public:
   using iterator = T*;
   iterator begin() { return data; }
   iterator end() { return &data[w*h]; }
+  
+  using const_iterator = const T*;
+  const_iterator begin() const { return data; }
+  const_iterator end() const { return &data[w*h]; }
 };
 
 //------------------------------------------------------------------------------
@@ -162,6 +176,14 @@ public:
     , begin_(0)
     , end_(0)
   {}
+  RingBuffer(RingBuffer const& that)
+    : data(that.data)
+    , capacity_(that.capacity_)
+    , begin_(that.begin_)
+    , end_(that.end_)
+  {
+    std::copy(that.data, that.data+capacity_, data);
+  }
   ~RingBuffer() {
     delete [] data;
   }

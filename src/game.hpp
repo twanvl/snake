@@ -15,7 +15,7 @@ private:
 
 public:
   Grid<bool> grid;
-  RingBuffer<Coord> snake;
+  RingBuffer<Coord> snake; // coordinates that contain the snake, front = head of snake, back = tail of snake
   Coord apple_pos;
   int turn = 0;
   enum class State {
@@ -26,7 +26,10 @@ public:
   inline bool loss() const { return state == State::loss; }
   inline bool done() const { return state != State::playing; }
   
+  inline Coord snake_pos() const { return snake.front(); }
+  
   Game(RNG const& rng = global_rng.next_rng());
+  Game(Game const&) = delete;
   void move(Dir dir);
 };
 

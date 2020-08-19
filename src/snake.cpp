@@ -30,7 +30,7 @@ Dir zig_zag_path(Coord c) {
 
 struct FixedAgent : Agent {
   Dir operator () (Game const& game) {
-    Coord c = game.snake.front();
+    Coord c = game.snake_pos();
     return zig_zag_path(c);
   }
 };
@@ -53,7 +53,7 @@ struct FixedPathAgent {
   Grid<Coord> path;
   
   Dir operator () (Game const& game) {
-    Coord c = game.snake.front();
+    Coord c = game.snake_pos();
     return path[c] - c;
   }
 };
@@ -77,7 +77,7 @@ struct CutAgent : Agent {
   bool quick_dir_change = true;
 
   Dir operator () (Game const& game) {
-    Coord c = game.snake.front();
+    Coord c = game.snake_pos();
     Coord target = game.apple_pos;
     Grid<bool> const& grid = game.grid;
     if (c.x == 0) move_right = true;
@@ -228,6 +228,9 @@ bool patch_path(GridPath& path, Coord a, Coord b) {
 struct Step {
   int dist;
   Coord from;
+  bool reachable() const {
+    return dist < INT_MAX;
+  }
 };
 
 template <typename CanMove>
@@ -309,13 +312,21 @@ bool can_move_in_tree_cell(int x, int y, Dir dir) {
 //     (moving in from parent shouldn't happen if the snake's tail is the tree's root, I think)
 // 3. We still have to cover all cells with a tree.
 //    That means that there must be no
-// 
 // Condition 1 and 2 are doable, but combining with 3 is (probably) NP-hard.
-// Heuristic:
+
+// Heuristic (3A):
 //  * first find shortest path satisfying 1,2.
 //  * then check the state after following the path to the goal.
 //  * if some coords become unreachable at that time, then we have clearly failed to maintain a tree.
 //  * in that case, instead use the shortest path to one of the unreachable cells 
+
+// Alternative heuristic (3B):
+//  * use shortest path satisfying 1,2
+//  * if the resulting move makes some coords unreachable, then perform the other move instead
+//    (there are always at most two possible moves)
+
+// It would also be good to hug walls, to avoid creating large almost closed regions
+// that could be added as a factor to the shortest path code
 
 // 
 //    * if connected status can remain ambiguous that is fine
@@ -377,14 +388,49 @@ Dir move_to_parent(Grid<Coord> const& cell_parents, Coord a) {
 }
 
 struct CellTreeAgent {
+  bool prevent_unreachable = true;
   Dir operator () (Game const& game) {
-    Coord c = game.snake.front();
+    Coord c = game.snake_pos();
+    // Find shortest path satisfying 1,2
     auto cell_parents = cell_tree_parents(game);
-    auto path = generic_shortest_path(
-        [&game,&cell_parents](Coord a, Coord b, Dir dir) {
-          return can_move_in_cell_tree(cell_parents, a, b, dir) && !game.grid[b];
-        }, c, game.apple_pos);
+    auto can_move = [&game,&cell_parents](Coord a, Coord b, Dir dir) {
+      return can_move_in_cell_tree(cell_parents, a, b, dir) && !game.grid[b];
+    };
+    auto path = generic_shortest_path(can_move, c, game.apple_pos);
     auto c2 = first_step(path, c, game.apple_pos);
+    
+    // Heuristic 3B: prevent making parts of the grid unreachable with this move
+    if (prevent_unreachable) {
+      Grid<bool> grid_after = game.grid;
+      grid_after[c2] = true;
+      auto cell_parents_after = cell_parents;
+      if (cell_parents_after[cell(c2)] == not_visited) {
+        cell_parents_after[cell(c2)] = cell(c);
+      }
+      auto can_move_after = [&grid_after,&cell_parents_after](Coord a, Coord b, Dir dir) {
+        return can_move_in_cell_tree(cell_parents_after, a, b, dir) && !grid_after[b];
+      };
+      auto reachable = generic_shortest_path(can_move_after, c2);
+      bool any_unreachable = false;
+      for (auto a : coords) {
+        if (!grid_after[a] && !reachable[a].reachable()) {
+          // unreachable
+          any_unreachable = true;
+          break;
+        }
+      }
+      if (any_unreachable) {
+        for (auto dir : dirs) {
+          if (can_move(c,c+dir,dir) && c+dir != c2) {
+            //std::cout << "Moving " << dir << " instead of " << (c2-c) << " to avoid unreachables" << std::endl;
+            return dir;
+          }
+        }
+        std::cout << game;
+        std::cout << "Unreachable grid points exist, but no alternative moves" << std::endl;
+        throw "bad";
+      }
+    }
     if (!is_neighbor(c,c2)) {
       // no path, chase our tail until we escape
       // but be careful not to bump into our tail
@@ -506,9 +552,11 @@ int main() {
   //play(game, CutAgent{}, false);
   play(game, CellTreeAgent{}, false);
   std::cout << game;
-  return 0;
+  //return 0;
+  
   //auto stats = play_multiple([]{return FixedAgent{};});
-  auto stats = play_multiple([]{return CutAgent{};});
+  //auto stats = play_multiple([]{return CutAgent{};});
+  auto stats = play_multiple([]{return CellTreeAgent{};});
   std::cout << "turns: mean " << mean(stats.turns) << ", stddev " << std::sqrt(variance(stats.turns)) << std::endl;
   if (mean(stats.wins) < 1) {
     std::cout << "LOST: " << (1-mean(stats.wins))*100 << "%" << std::endl;
