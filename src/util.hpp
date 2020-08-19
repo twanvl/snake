@@ -1,6 +1,9 @@
 #pragma once
 
 #include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 //------------------------------------------------------------------------------
@@ -119,14 +122,15 @@ template <typename T>
 class Grid {
 private:
   T* data;
+  int w,h;
 public:
-  Grid(T const& init = T())
-    : data(new T[w*h])
+  Grid(T const& init = T(), int w=::w, int h=::h)
+    : data(new T[w*h]), w(w), h(h)
   {
     std::fill(begin(), end(), init);
   }
   Grid(Grid const& that)
-    : data(new T[w*h])
+    : data(new T[that.w*that.h]), w(that.w), h(that.h)
   {
     std::copy(that.begin(), that.end(), data);
   }
@@ -234,4 +238,63 @@ public:
     return data[(begin_+i) % capacity_];
   }
 };
+
+//------------------------------------------------------------------------------
+// Statistics utilities
+//------------------------------------------------------------------------------
+
+template <typename T>
+double mean(std::vector<T> const& xs) {
+  // work around emscripten bug (missing accumulate function)
+  //return std::accumulate(xs.begin(), xs.end(), 0.) / xs.size();
+  double sum = 0.;
+  for(auto x : xs) sum += x;
+  return sum / std::max(1, (int)xs.size());
+}
+
+template <typename T>
+double variance(std::vector<T> const& xs) {
+  double m = mean(xs);
+  double sum = 0.;
+  for(auto x : xs) sum += (x-m)*(x-m);
+  return sum / std::max(1, (int)xs.size()-1);
+}
+
+template <typename T>
+double stddev(std::vector<T> const& xs) {
+  return std::sqrt(variance(xs));
+}
+
+double lerp(double a, double b, double t) {
+  return t*a + (1-t)*b;
+}
+
+template <typename T>
+std::vector<double> quantiles(std::vector<T> const& xs) {
+  std::vector<T> sorted = xs;
+  std::sort(sorted.begin(), sorted.end());
+  std::vector<double> quantiles;
+  for (size_t i=0 ; i<5 ; ++i) {
+    size_t j = i * (xs.size() - 1);
+    if (j % 4 == 0) {
+      quantiles.push_back(sorted[j/4]);
+    } else {
+      quantiles.push_back(lerp(sorted[j/4], sorted[(j+3)/4], (j%4)*0.25));
+    }
+  }
+  return quantiles;
+}
+
+std::ostream& operator << (std::ostream& out, std::vector<double> xs) {
+  out << "[";
+  bool first = true;
+  for (auto x : xs) {
+    if (!first) {
+      out << ", ";
+    }
+    first = false;
+    out << x;
+  }
+  return out << "]";
+}
 
