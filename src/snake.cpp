@@ -145,10 +145,10 @@ Stats play_multiple(AgentGen make_agent, int n = 100) {
 int main() {
   Game game;
   //auto agent = []{return FixedAgent{};};
-  auto agent = []{return CutAgent{};};
-  //auto agent = []{return CellTreeAgent{};};
+  //auto agent = []{return CutAgent{};};
+  auto agent = []{return CellTreeAgent{};};
   
-  if (0) {
+  if (1) {
     std::cout << "\033[H\033[J";
     play(game, agent(), false);
     std::cout << game;

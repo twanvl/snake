@@ -33,6 +33,14 @@ bool can_move_in_tree_cell(int x, int y, Dir dir) {
   return false;
 }
 
+bool inside_tree_cell(int x, int y, Dir dir) {
+  if (x == 1 && y == 0) return dir == Dir::left;
+  if (x == 0 && y == 1) return dir == Dir::right;
+  if (x == 0 && y == 0) return dir == Dir::down;
+  if (x == 1 && y == 1) return dir == Dir::up;
+  return false;
+}
+
 // We should be able to use a shortest-path algorithm on the original snake-level that maintains the cell and tree constraints
 // 1. Cell contraint means that only some moves are possible (2 dirs in each coord instead of 4)
 //    See can_move_in_tree_cell
@@ -110,38 +118,44 @@ struct CellTreeAgent {
   bool prevent_unreachable = true;
 
   Dir operator () (Game const& game) {
-    Coord c = game.snake_pos();
+    Coord pos = game.snake_pos();
     // Find shortest path satisfying 1,2
     auto cell_parents = cell_tree_parents(game);
-    auto can_move = [&game,&cell_parents](Coord a, Coord b, Dir dir) {
-      return can_move_in_cell_tree(cell_parents, a, b, dir) && !game.grid[b];
+    auto edge = [&game,&cell_parents](Coord a, Coord b, Dir dir) {
+      if (can_move_in_cell_tree(cell_parents, a, b, dir) && !game.grid[b]) {
+        // small penalty for moving inside the same cell, this should cause the path to hug walls more?
+        return 1000 + 1*!inside_tree_cell(a.x%2, a.y%2, dir);
+      } else {
+        return INT_MAX;
+      }
     };
-    auto path = generic_shortest_path(can_move, c, game.apple_pos);
-    auto c2 = first_step(path, c, game.apple_pos);
+    auto path = astar_shortest_path(edge, pos, game.apple_pos, 1000);
+    auto pos2 = first_step(path, pos, game.apple_pos);
     
     // Heuristic 3A: prevent making parts of the grid unreachable with this move
     if (prevent_unreachable) {
+      // what the grid looks like after moving to pos2
       Grid<bool> grid_after = game.grid;
-      grid_after[c2] = true;
+      grid_after[pos2] = true;
       auto cell_parents_after = cell_parents;
-      if (cell_parents_after[cell(c2)] == not_visited) {
-        cell_parents_after[cell(c2)] = cell(c);
+      if (cell_parents_after[cell(pos2)] == not_visited) {
+        cell_parents_after[cell(pos2)] = cell(pos);
       }
       auto can_move_after = [&grid_after,&cell_parents_after](Coord a, Coord b, Dir dir) {
         return can_move_in_cell_tree(cell_parents_after, a, b, dir) && !grid_after[b];
       };
-      auto reachable = generic_shortest_path(can_move_after, c2);
+      auto reachable = flood_fill(can_move_after, pos2);
       bool any_unreachable = false;
       for (auto a : coords) {
-        if (!grid_after[a] && !reachable[a].reachable()) {
+        if (!grid_after[a] && !reachable[a]) {
           any_unreachable = true;
           break;
         }
       }
       if (any_unreachable) {
         for (auto dir : dirs) {
-          if (can_move(c,c+dir,dir) && c+dir != c2) {
-            //std::cout << "Moving " << dir << " instead of " << (c2-c) << " to avoid unreachables" << std::endl;
+          if (edge(pos,pos+dir,dir) != INT_MAX && pos+dir != pos2) {
+            std::cout << game << "Moving " << dir << " instead of " << (pos2-pos) << " to avoid unreachables" << std::endl;
             return dir;
           }
         }
@@ -150,7 +164,8 @@ struct CellTreeAgent {
         throw "bad";
       }
     }
-    if (!is_neighbor(c,c2)) {
+    /*
+    if (false && !is_neighbor(c,c2)) {
       // no path, chase our tail until we escape
       // but be careful not to bump into our tail
       if (cell_parents[cell(c)] == root) {
@@ -197,7 +212,8 @@ struct CellTreeAgent {
     if (!can_move_in_tree_cell(c.x % 2, c.y % 2, c2 - c)) {
       std::cout << game;
     }
-    return c2 - c;
+    */
+    return pos2 - pos;
   }
 };
 
