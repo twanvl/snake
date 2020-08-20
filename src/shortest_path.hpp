@@ -53,6 +53,17 @@ Coord first_step(Grid<Step> const& path, Coord from, Coord to) {
   return to;
 }
 
+// Find all coords in a path from from to to, excluding the start point
+// Note: returned in reverse order, that is result.back() is the first step, result.front() == to
+std::vector<Coord> read_path(Grid<Step> const& path, Coord from, Coord to) {
+  std::vector<Coord> steps;
+  while (to != Coord{-1,-1} && to != from) {
+    steps.push_back(to);
+    to = path[to].from;
+  }
+  return steps;
+}
+
 //------------------------------------------------------------------------------
 // Shortest paths with A-star algorithm
 //------------------------------------------------------------------------------

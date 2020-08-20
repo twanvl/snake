@@ -2,10 +2,13 @@
 
 #include "util.hpp"
 #include "random.hpp"
+#include <string>
 
 //------------------------------------------------------------------------------
 // Game state
 //------------------------------------------------------------------------------
+
+using Snake = RingBuffer<Coord>;
 
 class Game {
 private:
@@ -15,7 +18,7 @@ private:
 
 public:
   Grid<bool> grid;
-  RingBuffer<Coord> snake; // coordinates that contain the snake, front = head of snake, back = tail of snake
+  Snake snake; // coordinates that contain the snake, front = head of snake, back = tail of snake
   Coord apple_pos;
   int turn = 0;
   enum class State {
@@ -81,7 +84,6 @@ void Game::move(Dir dir) {
     } else {
       apple_pos = random_free_coord();
     }
-    //std::cout << *this;
   } else {
     // remove tail
     grid[snake.back()] = false;
@@ -90,7 +92,7 @@ void Game::move(Dir dir) {
 }
 
 
-std::ostream& operator << (std::ostream& out, Grid<const char*> const& grid) {
+std::ostream& operator << (std::ostream& out, Grid<std::string> const& grid) {
   for (int y=0; y<h; ++y) {
     for (int x=0; x<w; ++x) {
       out << grid[{x,y}];
@@ -100,36 +102,23 @@ std::ostream& operator << (std::ostream& out, Grid<const char*> const& grid) {
   return out;
 }
 
-Grid<const char*> box_draw_grid(Game const& game) {
-  Grid<const char*> grid("·");
-  if (true) {
-    #define GRAY(x) "\033[30;1m" x "\033[0m"
-    for (int y=0; y<h; y+=2) {
-      for (int x=0; x<w; x+=2) {
-        grid[{x,  y  }] = GRAY("╭");
-        grid[{x+1,y  }] = GRAY("╮");
-        grid[{x,  y+1}] = GRAY("╰");
-        grid[{x+1,y+1}] = GRAY("╯");
-      }
-    }
-  }
-  grid[game.apple_pos] = "\033[31;1m●\033[0m";
-  for (int i=0; i < game.snake.size() ; ++i) {
-    Coord c = game.snake[i];
-    //#define SNAKE_COLOR(x) "\033[32;1m" x "\033[0m"
-    #define SNAKE_COLOR(x) x
+void draw_snake(Grid<std::string>& grid, Snake const& snake) {
+  for (int i=0; i < snake.size() ; ++i) {
+    Coord c = snake[i];
+    #define SNAKE_COLOR(x) "\033[32m" x "\033[0m"
+    //#define SNAKE_COLOR(x) x
     grid[c] = SNAKE_COLOR("#");
     if (i==0) {
       grid[c] = SNAKE_COLOR("■");
-    } else if (i == game.snake.size()-1) {
-      Dir d = game.snake[i-1] - c;
+    } else if (i == snake.size()-1) {
+      Dir d = snake[i-1] - c;
       if (d == Dir::up)    grid[c] = SNAKE_COLOR("╵");
       if (d == Dir::down)  grid[c] = SNAKE_COLOR("╷");
       if (d == Dir::left)  grid[c] = SNAKE_COLOR("╴");
       if (d == Dir::right) grid[c] = SNAKE_COLOR("╶");
     } else {
-      Dir d = c - game.snake[i+1];
-      Dir e = game.snake[i-1] - c;
+      Dir d = c - snake[i+1];
+      Dir e = snake[i-1] - c;
       if (d == Dir::up) {
         if (e == Dir::up)    grid[c] = SNAKE_COLOR("│");
         if (e == Dir::down)  grid[c] = SNAKE_COLOR("│");
@@ -153,7 +142,27 @@ Grid<const char*> box_draw_grid(Game const& game) {
       }
     }
   }
+}
+
+Grid<std::string> box_draw_grid(Snake const& snake, Coord apple_pos) {
+  Grid<std::string> grid("·");
+  if (true) {
+    #define GRAY(x) "\033[30;1m" x "\033[0m"
+    for (int y=0; y<h; y+=2) {
+      for (int x=0; x<w; x+=2) {
+        grid[{x,  y  }] = GRAY("╭");
+        grid[{x+1,y  }] = GRAY("╮");
+        grid[{x,  y+1}] = GRAY("╰");
+        grid[{x+1,y+1}] = GRAY("╯");
+      }
+    }
+  }
+  grid[apple_pos] = "\033[31;1m●\033[0m";
+  draw_snake(grid, snake);
   return grid;
+}
+Grid<std::string> box_draw_grid(Game const& game) {
+  return box_draw_grid(game.snake, game.apple_pos);
 }
 
 std::ostream& operator << (std::ostream& out, Game const& game) {

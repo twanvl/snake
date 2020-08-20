@@ -181,7 +181,7 @@ public:
     , end_(0)
   {}
   RingBuffer(RingBuffer const& that)
-    : data(that.data)
+    : data(new T[that.capacity_])
     , capacity_(that.capacity_)
     , begin_(that.begin_)
     , end_(that.end_)

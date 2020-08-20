@@ -92,16 +92,23 @@ bool patch_path(GridPath& path, Coord a, Coord b) {
 // Playing full games
 //------------------------------------------------------------------------------
 
+enum class Visualize {
+  no, eat, all
+};
+
 template <typename Agent>
-void play(Game& game, Agent agent, bool visualize = false) {
+void play(Game& game, Agent agent, Visualize visualize = Visualize::no) {
   while (!game.done()) {
-    if (visualize) {
+    if (visualize == Visualize::all) {
       std::cout << "\033[H";
       std::cout << game;
       usleep(game.turn < 100 ? 20000 : game.turn < 1000 ? 2000 : 200);
     }
-    //std::cout << game;
+    int snake_size = game.snake.size();
     game.move(agent(game));
+    if (visualize == Visualize::eat && game.snake.size() > snake_size) {
+      std::cout << game;
+    }
     if (game.turn > 1000000) game.state = Game::State::loss;
   }
 }
@@ -131,7 +138,7 @@ Stats play_multiple(AgentGen make_agent, int n = 100) {
     stats.turns.push_back(game.turn);
     stats.wins.push_back(game.win());
     if (!game.win()) std::cout << game;
-    std::cout << (i+1) << "/" << n << "  " << stats << "  \r";
+    std::cout << (i+1) << "/" << n << "  " << stats << "  \r" << std::flush;
   }
   std::cout << "\033[K";
   return stats;
@@ -142,7 +149,17 @@ Stats play_multiple(AgentGen make_agent, int n = 100) {
 // Main
 //------------------------------------------------------------------------------
 
-int main() {
+int main(int argc, const char** argv) {
+  // Parse command line args
+  /*
+  std::string mode = argc >= ? argv[1] : "";
+  if (mode == "")
+  for (int i=1; i<argc; ++i) {
+    std::string arg = argv[i];
+    if (arg
+  }
+  */
+  //
   Game game;
   //auto agent = []{return FixedAgent{};};
   //auto agent = []{return CutAgent{};};
@@ -150,7 +167,7 @@ int main() {
   
   if (1) {
     std::cout << "\033[H\033[J";
-    play(game, agent(), false);
+    play(game, agent(), Visualize::no);
     std::cout << game;
   }
   
