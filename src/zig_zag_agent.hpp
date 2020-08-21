@@ -46,7 +46,7 @@ Grid<Coord> make_path() {
 }
 
 // agent that maintains a hamiltonian path
-struct FixedPathAgent {
+struct FixedCycleAgent {
   Grid<Coord> path;
   
   Dir operator () (Game const& game) {
@@ -78,7 +78,7 @@ struct CutAgent : Agent {
     Coord target = game.apple_pos;
     Grid<bool> const& grid = game.grid;
     if (c.x == 0) move_right = true;
-    if (c.x == w-1) move_right = false;
+    if (c.x == w-1 || (c.y == 0 && c.x > 0)) move_right = false;
     if (move_right) {
       if (c.x % 2 == 0) {
         if (quick_dir_change && target.x < c.x && game.snake.size() < w*h/4 && !any(grid,c.x+1,w,0,h) && !grid[{c.x,c.y-1}]) {

@@ -3,90 +3,10 @@
 
 #include "zig_zag_agent.hpp"
 #include "cell_tree_agent.hpp"
+#include "hamiltonian_cycle.hpp"
 
 #include <unistd.h>
 #include <cmath>
-
-//------------------------------------------------------------------------------
-// Hamiltonian cycles
-// represented as: at each grid point the coordinate of the next point
-//------------------------------------------------------------------------------
-
-using GridPath = Grid<Coord>;
-
-bool is_hamiltonian_cycle(GridPath const& path) {
-  // conditions:
-  //  * each step points to a neighbor
-  //  * after w*h steps we are back at the begining (we have a cycle)
-  //  * and no sooner (cycle has length w*h, so it is the only one)
-  Coord pos = {0,0};
-  for (int i=0; i < w*h; ++i) {
-    if (!is_neighbor(pos, path[pos])) return false;
-    pos = path[pos];
-    if (pos == Coord{0,0}) {
-      return (i==w*h-1);
-    }
-  }
-  return false;
-}
-
-int path_distane(GridPath const& path, Coord from, Coord to) {
-  int dist = 0;
-  while (from != to) {
-    from = path[from];
-    dist++;
-  }
-  return dist;
-}
-
-GridPath reverse(GridPath const& path) {
-  GridPath reverse;
-  for (auto pos : coords) {
-    reverse[path[pos]] = pos;
-  }
-  return reverse;
-}
-
-Coord path_from(GridPath const& path, Coord to) {
-  if (to.x > 0   && path[{to.x-1, to.y}] == to) return Coord{to.x-1, to.y};
-  if (to.x < w-1 && path[{to.x+1, to.y}] == to) return Coord{to.x+1, to.y};
-  if (to.y > 0   && path[{to.x, to.y-1}] == to) return Coord{to.x, to.y-1};
-  if (to.y < h-1 && path[{to.x, to.y+1}] == to) return Coord{to.x, to.y+1};
-  throw "No path from neighbor";
-}
-
-// Mark the nodes by setting mark[c]=value for all c on the path from...to (inclusive)
-template <typename T>
-void mark_path(GridPath const& path, Coord from, Coord to, Grid<T>& mark, T value) {
-  mark[from] = value;
-  while (from != to) {
-    from = path[from];
-    mark[from] = value;
-  }
-}
-
-// Change a path to have path[a] == b
-// patches up the path so it remains a cycle
-// returns success
-bool patch_path(GridPath& path, Coord a, Coord b) {
-  if (path[a] == b) return true; // already done
-  // Path is [...,a,c,...,d,b,...]
-  Coord c = path[a];
-  Coord d = path_from(path, b);
-  // Setting it to [...,a,b,...] would break off a path c -> ... -> d
-  // Can that be made into a cycle?
-  if (is_neighbor(c,d)) {
-    // Try to join [c,...,d] into another part of the path
-    // We can do that if there are nodes u,v not in the path adjacent to two nodes x,y in the c..d-cycle
-    // in that case we can change
-    //   u -> v            u   v
-    //             into    ↓   ↑
-    //   x <- y            x   y
-    // Only consider u,v that do not currently contain the snake
-  }
-  return false;
-}
-
 
 //------------------------------------------------------------------------------
 // Playing full games
@@ -98,6 +18,9 @@ enum class Visualize {
 
 template <typename Agent>
 void play(Game& game, Agent agent, Visualize visualize = Visualize::no) {
+  if (visualize == Visualize::all) {
+    std::cout << "\033[H\033[J";
+  }
   while (!game.done()) {
     if (visualize == Visualize::all) {
       std::cout << "\033[H";
@@ -162,11 +85,13 @@ int main(int argc, const char** argv) {
   //
   Game game;
   //auto agent = []{return FixedAgent{};};
+  //auto agent = []{return FixedCycleAgent{random_hamiltonian_cycle(global_rng)};};
   //auto agent = []{return CutAgent{};};
-  auto agent = []{return CellTreeAgent{};};
+  //auto agent = []{return CellTreeAgent{};};
+  //auto agent = []{return PerturbedHamiltonianCycle(make_path());};
+  auto agent = []{return PerturbedHamiltonianCycle(random_hamiltonian_cycle(global_rng));};
   
   if (1) {
-    std::cout << "\033[H\033[J";
     play(game, agent(), Visualize::no);
     std::cout << game;
   }

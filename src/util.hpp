@@ -45,23 +45,6 @@ inline Coord operator + (Coord a, Dir dir) {
   }
 }
 
-inline Dir operator - (Coord a, Coord b) {
-  if (a.x == b.x) {
-    if (a.y == b.y-1) return Dir::up;
-    if (a.y == b.y+1) return Dir::down;
-  } else if (a.y == b.y) {
-    if (a.x == b.x-1) return Dir::left;
-    if (a.x == b.x+1) return Dir::right;
-  }
-  throw "Not a dir";
-}
-
-inline bool is_neighbor(Coord a, Coord b) {
-  if (a.x == b.x) return std::abs(a.y - b.y) == 1;
-  if (a.y == b.y) return std::abs(a.x - b.x) == 1;
-  return false;
-}
-
 inline std::ostream& operator << (std::ostream& out, Dir dir) {
   switch (dir) {
     case Dir::up:    return out << "u";
@@ -76,13 +59,31 @@ inline std::ostream& operator << (std::ostream& out, Coord a) {
   return out << "(" << a.x << "," << a.y << ")";
 }
 
+inline Dir operator - (Coord a, Coord b) {
+  if (a.x == b.x) {
+    if (a.y == b.y-1) return Dir::up;
+    if (a.y == b.y+1) return Dir::down;
+  } else if (a.y == b.y) {
+    if (a.x == b.x-1) return Dir::left;
+    if (a.x == b.x+1) return Dir::right;
+  }
+  std::cout << "Not neighbors: " << a << " and " << b << std::endl;
+  throw "Not a dir";
+}
+
+inline bool is_neighbor(Coord a, Coord b) {
+  if (a.x == b.x) return std::abs(a.y - b.y) == 1;
+  if (a.y == b.y) return std::abs(a.x - b.x) == 1;
+  return false;
+}
+
 //------------------------------------------------------------------------------
 // Coordinate Grid
 //------------------------------------------------------------------------------
 
 const int w = 30, h = 30;
 
-inline bool valid(Coord a) {
+inline bool valid(Coord a, int w=w, int h=h) {
   return a.x >= 0 && a.x < w && a.y >= 0 && a.y < h;
 }
 
@@ -150,6 +151,9 @@ public:
   }
   inline T const& operator [] (Coord a) const {
     return data[a.x + w*a.y];
+  }
+  inline bool valid(Coord a) const {
+    return ::valid(a, w, h);
   }
 
   using iterator = T*;

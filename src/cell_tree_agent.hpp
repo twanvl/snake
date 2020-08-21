@@ -181,79 +181,79 @@ struct CellTreeAgent {
   const DetourStrategy detour = DetourStrategy::nearest_unreachable;
   // penalties
   const int same_cell_penalty = 0;
-  const int new_cell_penalty = 1;
-  const int parent_cell_penalty = 2;
+  const int new_cell_penalty = 0;
+  const int parent_cell_penalty = 0;
   
   std::vector<Coord> cached_path;
   
   Dir operator () (Game const& game) {
     Coord pos = game.snake_pos();
-    if (cached_path.empty() || recalculate_path) {
-      // Find shortest path satisfying 1,2
-      auto cell_parents = cell_tree_parents(game.snake);
-      auto edge = [&](Coord a, Coord b, Dir dir) {
-        if (can_move_in_cell_tree(cell_parents, a, b, dir) && !game.grid[b]) {
-          // small penalty for moving to same/different cell
-          bool to_parent = cell(b) == cell_parents[cell(a)];
-          bool to_same   = cell(b) == cell(a);
-          return 1000
-            + (to_parent ? parent_cell_penalty : to_same ? same_cell_penalty : new_cell_penalty);
-        } else {
-          return INT_MAX;
-        }
-      };
-      auto paths = astar_shortest_path(edge, pos, game.apple_pos, 1000);
-      auto path = read_path(paths, pos, game.apple_pos);
-      auto pos2 = path.back();
-      
-      // Heuristic 3: prevent making parts of the grid unreachable
-      if (detour != DetourStrategy::none) {
-        auto unreachable = find_unreachables_after_moves(game.grid, game.snake, paths, path, lookahead);
-        if (unreachable.any) {
-          if (detour == DetourStrategy::any) {
-            // 3A: move in any other direction
-            for (auto dir : dirs) {
-              if (edge(pos,pos+dir,dir) != INT_MAX && pos+dir != pos2) {
-                //std::cout << game << "Moving " << dir << " instead of " << (pos2-pos) << " to avoid unreachables" << std::endl;
-                cached_path.clear();
-                return dir;
-              }
-            }
-          } else if (detour == DetourStrategy::nearest_unreachable) {
-            // 3B: move to one of the unreachable coords
-            if (unreachable.dist_to_nearest < INT_MAX) {
-              // move to an unreachable coord first
-              pos2 = first_step(paths, pos, unreachable.nearest);
-              cached_path.clear();
-              return pos2 - pos;
-            }
-            // failed to find detour
-            // This can happen because it previously looked like everything would be reachable upon reaching the apple,
-            // but moving the snake's tail opened up a shorter path
-            // Solution: just continue along previous path
-            if (!cached_path.empty()) {
-              pos2 = cached_path.back();
-              cached_path.pop_back();
-              return pos2 - pos;
-            }
-          }
-          if (0) {
-            std::cout << game;
-            std::cout << "Unreachable grid points (will) exist, but no alternative moves or cached path" << std::endl;
-          }
-        }
-      }
-      
-      // use as new cached path
-      cached_path = std::move(path);
-      cached_path.pop_back();
-      
-      return pos2 - pos;
-    } else {
+    if (!cached_path.empty() && !recalculate_path) {
       Coord pos2 = cached_path.back();
       cached_path.pop_back();
       return pos2 - pos;
     }
+    
+    // Find shortest path satisfying 1,2
+    auto cell_parents = cell_tree_parents(game.snake);
+    auto edge = [&](Coord a, Coord b, Dir dir) {
+      if (can_move_in_cell_tree(cell_parents, a, b, dir) && !game.grid[b]) {
+        // small penalty for moving to same/different cell
+        bool to_parent = cell(b) == cell_parents[cell(a)];
+        bool to_same   = cell(b) == cell(a);
+        return 1000
+          + (to_parent ? parent_cell_penalty : to_same ? same_cell_penalty : new_cell_penalty);
+      } else {
+        return INT_MAX;
+      }
+    };
+    auto paths = astar_shortest_path(edge, pos, game.apple_pos, 1000);
+    auto path = read_path(paths, pos, game.apple_pos);
+    auto pos2 = path.back();
+    
+    // Heuristic 3: prevent making parts of the grid unreachable
+    if (detour != DetourStrategy::none) {
+      auto unreachable = find_unreachables_after_moves(game.grid, game.snake, paths, path, lookahead);
+      if (unreachable.any) {
+        if (detour == DetourStrategy::any) {
+          // 3A: move in any other direction
+          for (auto dir : dirs) {
+            if (edge(pos,pos+dir,dir) != INT_MAX && pos+dir != pos2) {
+              //std::cout << game << "Moving " << dir << " instead of " << (pos2-pos) << " to avoid unreachables" << std::endl;
+              cached_path.clear();
+              return dir;
+            }
+          }
+        } else if (detour == DetourStrategy::nearest_unreachable) {
+          // 3B: move to one of the unreachable coords
+          if (unreachable.dist_to_nearest < INT_MAX) {
+            // move to an unreachable coord first
+            pos2 = first_step(paths, pos, unreachable.nearest);
+            cached_path.clear();
+            return pos2 - pos;
+          }
+          // failed to find detour
+          // This can happen because it previously looked like everything would be reachable upon reaching the apple,
+          // but moving the snake's tail opened up a shorter path
+          // Solution: just continue along previous path
+          if (!cached_path.empty()) {
+            pos2 = cached_path.back();
+            cached_path.pop_back();
+            return pos2 - pos;
+          }
+        }
+        if (0) {
+          std::cout << game;
+          std::cout << "Unreachable grid points (will) exist, but no alternative moves or cached path" << std::endl;
+        }
+      }
+    }
+    
+    // use as new cached path
+    cached_path = std::move(path);
+    cached_path.pop_back();
+    
+    return pos2 - pos;
   }
 };
 

@@ -55,13 +55,23 @@ Coord first_step(Grid<Step> const& path, Coord from, Coord to) {
 
 // Find all coords in a path from from to to, excluding the start point
 // Note: returned in reverse order, that is result.back() is the first step, result.front() == to
-std::vector<Coord> read_path(Grid<Step> const& path, Coord from, Coord to) {
+std::vector<Coord> read_path(Grid<Step> const& paths, Coord from, Coord to) {
   std::vector<Coord> steps;
   while (to != Coord{-1,-1} && to != from) {
     steps.push_back(to);
-    to = path[to].from;
+    to = paths[to].from;
   }
   return steps;
+}
+
+std::ostream& operator << (std::ostream& out, Grid<Step> const& paths) {
+  Grid<std::string> vis;
+  std::transform(paths.begin(), paths.end(), vis.begin(), [](Step s) -> std::string {
+    if (s.dist < 10) return std::to_string(s.dist);
+    if (s.dist == INT_MAX) return "-";
+    else return "9";
+  });
+  return std::cout << vis;
 }
 
 //------------------------------------------------------------------------------
