@@ -7,12 +7,89 @@
 
 #include <unistd.h>
 #include <cmath>
+#include <fstream>
 
 //------------------------------------------------------------------------------
 // Config
 //------------------------------------------------------------------------------
 
-CoordRange board_size = {30,30};
+//constexpr CoordRange board_size = {30,30};
+constexpr CoordRange board_size = {20,20};
+
+static_assert(board_size.w % 2 == 0 && board_size.h % 2 == 0);
+
+//------------------------------------------------------------------------------
+// Logging games
+//------------------------------------------------------------------------------
+
+struct Log {
+  std::vector<Coord> snake_pos;
+  std::vector<int>   snake_size;
+  std::vector<Coord> apple_pos;
+
+  void log(GameBase const& game) {
+    snake_pos.push_back(game.snake_pos());
+    snake_size.push_back(game.snake.size());
+    apple_pos.push_back(game.apple_pos);
+  }
+};
+
+class LoggedGame : public Game {
+public:
+  Log log;
+  
+  LoggedGame(CoordRange dims) : Game(dims) {
+    log.log(*this);
+  }
+  void move(Dir d) {
+    Game::move(d);
+    log.log(*this);
+  }
+};
+
+//------------------------------------------------------------------------------
+// Json output
+//------------------------------------------------------------------------------
+
+void write_json(std::ostream& out, int x) {
+  out << x;
+}
+void write_json(std::ostream& out, Coord c) {
+  out << "[" << c.x << "," << c.y << "]";
+}
+void write_json(std::ostream& out, CoordRange c) {
+  out << "[" << c.w << "," << c.h << "]";
+}
+
+template <typename T>
+void write_json(std::ostream& out, std::vector<T> const& xs) {
+  out << "[";
+  bool first = true;
+  for (auto x : xs) {
+    if (!first) {
+      out << ", ";
+    }
+    first = false;
+    write_json(out, x);
+  }
+  out << "]";
+}
+
+void write_json(std::ostream& out, LoggedGame const& game) {
+  out << "game = ";
+  out << "{" << std::endl;
+  out << "  \"size\": "; write_json(out, game.dimensions()); out << "," << std::endl;
+  out << "  \"snake_pos\": "; write_json(out, game.log.snake_pos); out << "," << std::endl;
+  out << "  \"snake_size\": "; write_json(out, game.log.snake_size); out << "," << std::endl;
+  out << "  \"apple_pos\": "; write_json(out, game.log.apple_pos); out << "," << std::endl;
+  out << "}" << std::endl;
+  out << ";";
+}
+
+void write_json(std::string const& filename, LoggedGame const& game) {
+  std::ofstream out(filename);
+  write_json(out, game);
+}
 
 //------------------------------------------------------------------------------
 // Playing full games
@@ -22,7 +99,7 @@ enum class Visualize {
   no, eat, all
 };
 
-template <typename Agent>
+template <typename Game, typename Agent>
 void play(Game& game, Agent agent, Visualize visualize = Visualize::no) {
   if (visualize == Visualize::all) {
     std::cout << "\033[H\033[J";
@@ -73,7 +150,6 @@ Stats play_multiple(AgentGen make_agent, CoordRange dims = board_size, int n = 1
   return stats;
 }
 
-
 //------------------------------------------------------------------------------
 // Main
 //------------------------------------------------------------------------------
@@ -89,18 +165,20 @@ int main(int argc, const char** argv) {
   }
   */
   //
-  Game game(board_size);
   //auto agent = []{return FixedAgent{};};
   //auto agent = []{return FixedCycleAgent{random_hamiltonian_cycle(global_rng)};};
-  auto agent = []{return CutAgent{};};
+  //auto agent = []{return CutAgent{};};
   //auto agent = []{return CellTreeAgent{};};
-  //auto agent = []{return PerturbedHamiltonianCycle(make_path(coords));};
+  //auto agent = []{return PerturbedHamiltonianCycle(make_path(board_size));};
   //auto agent = []{return PerturbedHamiltonianCycle(random_hamiltonian_cycle(global_rng));};
-  //auto agent = []{return DynamicHamiltonianCycleRepair{make_path(board_size)};};
+  auto agent = []{return DynamicHamiltonianCycleRepair{make_path(board_size)};};
   
   if (1) {
+    LoggedGame game(board_size);
     play(game, agent(), Visualize::no);
     std::cout << game;
+    
+    write_json("game.json", game);
   }
   
   if (1) {

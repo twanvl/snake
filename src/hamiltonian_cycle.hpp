@@ -212,8 +212,14 @@ struct PerturbedHamiltonianCycle {
 
 //------------------------------------------------------------------------------
 // Dynamic Hamiltonian Cycle Repair
-// see https://github.com/BrianHaidet/AlphaPhoenix/tree/master/Snake_AI_(2020a)_DHCR_with_strategy
 //------------------------------------------------------------------------------
+
+// see:
+// Snake AI: Dynamic Hamiltonian Cycle Repair (with some strategic enhancements)
+// 2019-2020, Brian Haidet, AlphaPhoenix, youtube.com/c/alphaphoenixchannel
+// https://github.com/BrianHaidet/AlphaPhoenix/tree/master/Snake_AI_(2020a)_DHCR_with_strategy
+//
+// This is a reimplementation
 
 // Here the idea is to maintain and update a Hamiltonian cycle
 
@@ -248,6 +254,8 @@ bool repair_cycle(GridPath& cycle, Coord a, Coord b) {
 struct DynamicHamiltonianCycleRepair {
   GridPath cycle;
   bool recalculate_path = true;
+  const int wall_follow_overshoot = 0; // 0 to disable
+  int wall_follow_mode = 0;
   std::vector<Coord> cached_path;
   
   Dir operator () (Game const& game) {
@@ -268,16 +276,29 @@ struct DynamicHamiltonianCycleRepair {
     };
     auto dists = astar_shortest_path(game.grid.coords(), edge, pos, goal);
     auto path = read_path(dists, pos, goal);
-    // would this path make nodes unreachable?
+    Coord step = path.back();
     /*
-    auto after = after_moves(game, path, Lookahead::many_keep_tail);
-    auto unreachable = unreachables(can_move, after, dists);
-    if (unreachable.any) {
-      wall_follow_mode = n;
+    if (wall_follow_overshoot > 0) {
+      // would this path make nodes unreachable?
+      auto after = after_moves(game, path, Lookahead::many_keep_tail);
+      auto unreachable = unreachables(can_move, after, dists);
+      if (unreachable.any) {
+        wall_follow_mode = wall_follow_overshoot; // called nascar mode in original code
+      } else if (wall_follow_mode) {
+        wall_follow_mode--;
+      }
+      if (wall_follow_mode > 0) {
+        
+      }
     }
     */
     // try to repair hamiltonian cycle
-    repair_cycle(cycle, pos, path.back());
+    if (cycle[pos] != step) {
+      // cycle needs to be changed
+      auto after = after_moves(game, path, Lookahead::one);
+      
+      repair_cycle(cycle, pos, path.back());
+    }
     // move along cycle
     return cycle[pos] - pos;
   }
