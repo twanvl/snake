@@ -6,17 +6,17 @@
 
 // A zig-zag path:
 //  go up and down while going right, then move back left along the top row
-Dir zig_zag_path(CoordRange range, Coord c) {
+Dir zig_zag_path(CoordRange dims, Coord c) {
   if (c.y == 0 && c.x > 0) {
     return Dir::left;
   } else if (c.x % 2 == 0) {
-    if (c.y == range.h-1) {
+    if (c.y == dims.h-1) {
       return Dir::right;
     } else {
       return Dir::down;
     }
   } else {
-    if (c.y == 1 && c.x != range.w-1) {
+    if (c.y == 1 && c.x != dims.w-1) {
       return Dir::right;
     } else {
       return Dir::up;
@@ -37,10 +37,10 @@ struct FixedAgent : Agent {
 //------------------------------------------------------------------------------
 
 // A Hamiltonian cycle
-Grid<Coord> make_path(CoordRange range) {
-  Grid<Coord> path(range);
-  for (auto c : coords) {
-    path[c] = c + zig_zag_path(range, c);
+Grid<Coord> make_path(CoordRange dims) {
+  Grid<Coord> path(dims);
+  for (auto c : dims) {
+    path[c] = c + zig_zag_path(dims, c);
   }
   return path;
 }
@@ -68,20 +68,22 @@ bool any(Grid<bool> const& grid, int x0, int x1, int y0, int y1) {
   return false;
 }
 
+const int MAX_W = 30;
 struct CutAgent : Agent {
-  int cuts[w] = {1};
+  int cuts[MAX_W] = {1};
   bool move_right = true;
   bool quick_dir_change = true;
 
   Dir operator () (Game const& game) {
     Coord c = game.snake_pos();
     Coord target = game.apple_pos;
+    int w = game.grid.w, h = game.grid.h;
     Grid<bool> const& grid = game.grid;
     if (c.x == 0) move_right = true;
     if (c.x == w-1 || (c.y == 0 && c.x > 0)) move_right = false;
     if (move_right) {
       if (c.x % 2 == 0) {
-        if (quick_dir_change && target.x < c.x && game.snake.size() < w*h/4 && !any(grid,c.x+1,w,0,h) && !grid[{c.x,c.y-1}]) {
+        if (quick_dir_change && target.x < c.x && game.snake.size() < game.grid.size()/4 && !any(grid,c.x+1,w,0,h) && !grid[{c.x,c.y-1}]) {
           move_right = false;
           return Dir::up;
         }

@@ -17,8 +17,8 @@ struct Step {
 };
 
 template <typename CanMove>
-Grid<Step> generic_shortest_path(CanMove const& can_move, Coord from, Coord to = {-1,-1}) {
-  Grid<Step> out(Step{INT_MAX,{-1,-1}});
+Grid<Step> generic_shortest_path(CoordRange dims, CanMove const& can_move, Coord from, Coord to = {-1,-1}) {
+  Grid<Step> out(dims, Step{INT_MAX,INVALID});
   std::vector<Coord> queue, next;
   queue.push_back(from);
   out[from].dist = 0;
@@ -28,7 +28,7 @@ Grid<Step> generic_shortest_path(CanMove const& can_move, Coord from, Coord to =
     for (auto a : queue) {
       for (auto d : dirs) {
         Coord b = a + d;
-        if (coords.valid(b) && can_move(a,b,d) && out[b].dist > dist) {
+        if (dims.valid(b) && can_move(a,b,d) && out[b].dist > dist) {
           out[b].dist = dist;
           out[b].from = a;
           next.push_back(b);
@@ -43,7 +43,7 @@ Grid<Step> generic_shortest_path(CanMove const& can_move, Coord from, Coord to =
 }
 
 Grid<Step> shortest_path(Grid<bool> const& grid, Coord from, Coord to = {-1,-1}) {
-  return generic_shortest_path([&grid](Coord a, Coord b, Dir d){ return !grid[b]; }, from, to);
+  return generic_shortest_path(grid.coords(), [&grid](Coord a, Coord b, Dir d){ return !grid[b]; }, from, to);
 }
 
 Coord first_step(Grid<Step> const& path, Coord from, Coord to) {
@@ -65,7 +65,7 @@ std::vector<Coord> read_path(Grid<Step> const& paths, Coord from, Coord to) {
 }
 
 std::ostream& operator << (std::ostream& out, Grid<Step> const& paths) {
-  Grid<std::string> vis;
+  Grid<std::string> vis(paths.dimensions());
   std::transform(paths.begin(), paths.end(), vis.begin(), [](Step s) -> std::string {
     if (s.dist < 10) return std::to_string(s.dist);
     if (s.dist == INT_MAX) return "-";
@@ -79,8 +79,8 @@ std::ostream& operator << (std::ostream& out, Grid<Step> const& paths) {
 //------------------------------------------------------------------------------
 
 template <typename Edge>
-Grid<Step> astar_shortest_path(Edge const& edges, Coord from, Coord to, int min_distance_cost=1) {
-  Grid<Step> out(Step{INT_MAX,{-1,-1}});
+Grid<Step> astar_shortest_path(CoordRange dims, Edge const& edges, Coord from, Coord to, int min_distance_cost=1) {
+  Grid<Step> out(dims, Step{INT_MAX, INVALID});
   struct Item {
     Coord c;
     int dist;
@@ -98,7 +98,7 @@ Grid<Step> astar_shortest_path(Edge const& edges, Coord from, Coord to, int min_
     if (item.c == to) break;
     for (auto d : dirs) {
       Coord b = item.c + d;
-      if (!coords.valid(b)) continue;
+      if (!dims.valid(b)) continue;
       auto edge = edges(item.c,b,d);
       if (edge == INT_MAX) continue;
       int new_dist = out[item.c].dist + edge;
@@ -131,7 +131,7 @@ void flood_fill_go(Grid<bool>& out, CanMove const& can_move, Coord a) {
     }
   }
   int max_x = a.x;
-  while (max_x + 1 < w) {
+  while (max_x + 1 < out.w) {
     if (can_move(Coord{max_x,y},Coord{max_x+1,y},Dir::right) && !out[Coord{max_x+1,y}]) {
       max_x++;
     } else {
@@ -145,15 +145,15 @@ void flood_fill_go(Grid<bool>& out, CanMove const& can_move, Coord a) {
     if (y > 0 && can_move(Coord{x,y},Coord{x,y-1},Dir::up) && !out[Coord{x,y-1}]) {
       flood_fill_go(out, can_move, Coord{x,y-1});
     }
-    if (y+1 < h && can_move(Coord{x,y},Coord{x,y+1},Dir::down) && !out[Coord{x,y+1}]) {
+    if (y+1 < out.h && can_move(Coord{x,y},Coord{x,y+1},Dir::down) && !out[Coord{x,y+1}]) {
       flood_fill_go(out, can_move, Coord{x,y+1});
     }
   }
 }
 
 template <typename CanMove>
-Grid<bool> flood_fill(CanMove const& can_move, Coord from) {
-  Grid<bool> out(false);
+Grid<bool> flood_fill(CoordRange dims, CanMove const& can_move, Coord from) {
+  Grid<bool> out(dims, false);
   flood_fill_go(out, can_move, from);
   return out;
 }

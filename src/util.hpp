@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include "random.hpp"
 
 //------------------------------------------------------------------------------
 // Directions
@@ -77,13 +78,16 @@ inline Dir operator - (Coord a, Coord b) {
   throw "Not a dir";
 }
 
+inline int manhattan_distance(Coord a, Coord b) {
+  return std::abs(a.x - b.x) + std::abs(a.y - b.y);
+}
+
 inline bool is_neighbor(Coord a, Coord b) {
-  if (a.x == b.x) return std::abs(a.y - b.y) == 1;
-  if (a.y == b.y) return std::abs(a.x - b.x) == 1;
-  return false;
+  return manhattan_distance(a,b) == 1;
 }
 
 const Coord INVALID = {-1,-1};
+const Coord NOT_VISITED = {-1,-1};
 const Coord ROOT = {-2,-2};
 
 //------------------------------------------------------------------------------
@@ -130,11 +134,10 @@ struct CoordRange {
   inline int size() const {
     return w * h;
   }
+  inline Coord random(RNG& rng) const {
+    return Coord{rng.random(w), rng.random(h)};
+  }
 };
-
-const int w = 30, h = 30;
-
-const CoordRange coords = {w,h};
 
 //------------------------------------------------------------------------------
 // Grid
@@ -155,9 +158,9 @@ private:
 public:
   const int w,h;
   Grid(CoordRange range, T const& init = T())
-    : Grid(init, range.w, range.h)
+    : Grid(range.w, range.h, init)
   {}
-  Grid(T const& init = T(), int w=::w, int h=::h)
+  Grid(int w, int h, T const& init = T())
     : data(new T[w*h]), w(w), h(h)
   {
     std::fill(begin(), end(), init);
@@ -187,6 +190,9 @@ public:
   
   inline CoordRange coords() const {
     return {w,h};
+  }
+  inline CoordRange dimensions() const {
+    return coords();
   }
   inline bool valid(Coord a) const {
     return coords().valid(a);

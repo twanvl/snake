@@ -17,7 +17,7 @@ bool is_hamiltonian_cycle(GridPath const& path) {
     if (!is_neighbor(pos, path[pos])) return false;
     pos = path[pos];
     if (pos == Coord{0,0}) {
-      return (i==w*h-1);
+      return (i == path.size()-1);
     }
   }
   return false;
@@ -25,7 +25,7 @@ bool is_hamiltonian_cycle(GridPath const& path) {
 
 // Make a Hamiltonian cycle given a w/2 * h/2 tree
 GridPath tree_to_hamiltonian_cycle(Grid<Coord> const& parent) {
-  GridPath path(INVALID, parent.w*2, parent.h*2);
+  GridPath path(parent.w*2, parent.h*2, INVALID);
   for (int y=0; y<path.h; ++y) {
     for (int x=0; x<path.w; ++x) {
       Coord c = {x,y};
@@ -48,12 +48,12 @@ GridPath tree_to_hamiltonian_cycle(Grid<Coord> const& parent) {
   return path;
 }
 
-Grid<Coord> random_spanning_tree(int w, int h, RNG& rng) {
-  Grid<Coord> tree(Coord{-2,-2},w,h);
+Grid<Coord> random_spanning_tree(CoordRange dims, RNG& rng) {
+  Grid<Coord> tree(dims, INVALID);
   std::vector<std::pair<Coord,Coord>> queue;
   {
-    Coord node = {rng.random(w), rng.random(h)};
-    tree[node] = Coord{-1,-1};
+    Coord node = dims.random(rng);
+    tree[node] = ROOT;
     for (auto d : dirs) {
       if (tree.valid(node+d)) queue.push_back({node, node+d});
     }
@@ -64,7 +64,7 @@ Grid<Coord> random_spanning_tree(int w, int h, RNG& rng) {
     Coord node   = queue[i].second;
     queue[i] = queue.back();
     queue.pop_back();
-    if (tree[node] == Coord{-2,-2}) {
+    if (tree[node] == INVALID) {
       tree[node] = parent;
       for (auto d : dirs) {
         if (tree.valid(node+d)) queue.push_back({node, node+d});
@@ -74,8 +74,8 @@ Grid<Coord> random_spanning_tree(int w, int h, RNG& rng) {
   return tree;
 }
 
-GridPath random_hamiltonian_cycle(RNG& rng) {
-  return tree_to_hamiltonian_cycle(random_spanning_tree(w/2, h/2, rng));
+GridPath random_hamiltonian_cycle(CoordRange dims, RNG& rng) {
+  return tree_to_hamiltonian_cycle(random_spanning_tree({dims.w/2, dims.h/2}, rng));
 }
 
 
@@ -89,8 +89,8 @@ int path_distane(GridPath const& path, Coord from, Coord to) {
 }
 
 GridPath reverse(GridPath const& path) {
-  GridPath reverse;
-  for (auto pos : coords) {
+  GridPath reverse(path.dimensions(), INVALID);
+  for (auto pos : path.coords()) {
     reverse[path[pos]] = pos;
   }
   return reverse;
@@ -128,6 +128,7 @@ struct PerturbedHamiltonianCycle {
   
   PerturbedHamiltonianCycle(GridPath const& cycle)
     : cycle(cycle)
+    , cycle_order(cycle.dimensions(), -1)
   {
     Coord c = {0,0};
     for (int i=0; i<cycle.size(); ++i) {
@@ -186,9 +187,9 @@ struct PerturbedHamiltonianCycle {
           }
         };
         Coord to = dist_goal < dist_tail ? goal : game.snake.back();
-        auto paths = astar_shortest_path(edge, pos, to);
+        auto paths = astar_shortest_path(game.grid.coords(), edge, pos, to);
         Coord better_next = first_step(paths, pos, to);
-        if (game.grid.valid(better_next) && !game.grid[better_next]) {
+        if (game.grid.is_clear(better_next)) {
           next = better_next;
         }
       } else {
@@ -233,7 +234,13 @@ bool repair_cycle(GridPath& cycle, Coord a, Coord b) {
     //   u -> v            u   v
     //             into    ↓   ↑
     //   x <- y            x   y
-    // Only consider u,v that do not currently contain the snake
+    // Only consider u,v that
+    //  * do not currently contain the snake
+    //  * are after the goal(?)
+    Coord x=d, y=c; // [d,c], [c,c+], ... ,[d-,d]
+    for (Coord x=c, y=d; x!=c; x=y,y=cycle[x]) {
+      y=cycle[x];
+    }
   }
   return false;
 }
@@ -253,15 +260,19 @@ struct DynamicHamiltonianCycleRepair {
       return pos2 - pos;
     }
     // find path to goal
-    auto edge = [&](Coord from, Coord to, Dir) {
-      return !game.grid[to] ? 1 : 0;
+    auto can_move = [&](Coord from, Coord to, Dir) {
+      return !game.grid[to];
     };
-    auto paths = astar_shortest_path(edge, pos, goal);
-    auto path = read_path(paths, pos, goal);
+    auto edge = [&](Coord from, Coord to, Dir dir) {
+      return can_move(from,to,dir) ? 1 : INT_MAX;
+    };
+    auto dists = astar_shortest_path(game.grid.coords(), edge, pos, goal);
+    auto path = read_path(dists, pos, goal);
     // would this path make nodes unreachable?
     /*
-    for (auto p : path) grid_after[p] = true;
-    if (any_unreachable) {
+    auto after = after_moves(game, path, Lookahead::many_keep_tail);
+    auto unreachable = unreachables(can_move, after, dists);
+    if (unreachable.any) {
       wall_follow_mode = n;
     }
     */

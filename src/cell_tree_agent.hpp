@@ -6,9 +6,9 @@
 //------------------------------------------------------------------------------
 
 enum class Lookahead {
-  one, // only look at what would happen with the move about to be made
-  many_keep_tail,
-  many_move_tail,
+  one,            // only look at what would happen with the move about to be made
+  many_keep_tail, // extend the snake along the path, keeping the current tail
+  many_move_tail, // move the snake along the path, also moving the tail
 };
 
 GameBase after_moves(GameBase const& game, std::vector<Coord> const& path, Lookahead lookahead) {
@@ -47,9 +47,9 @@ struct Unreachables {
 template <typename CanMove, typename GameLike>
 Unreachables unreachables(CanMove can_move, GameLike const& game, Grid<Step> const& dists) {
   // are there unreachable coords?
-  auto reachable = flood_fill(can_move, game.snake_pos());
+  auto reachable = flood_fill(game.dimensions(), can_move, game.snake_pos());
   Unreachables out;
-  for (auto a : coords) {
+  for (auto a : game.grid.coords()) {
     if (!game.grid[a] && !reachable[a]) {
       out.any = true;
       if (dists[a].dist < out.dist_to_nearest) {
@@ -142,20 +142,18 @@ using CellCoord = Coord;
 CellCoord cell(Coord c) {
   return {c.x/2, c.y/2};
 }
-const CellCoord not_visited = {-1,-1};
-const CellCoord root = {-2,-2};
 
 // Find current tree (represented as parent pointers)
 // note: the returned grid is only w/2 * h/2
 // {-1,-1} indicates cell is not visited
 // {-2,-2} indicates cell is root
-Grid<CellCoord> cell_tree_parents(RingBuffer<Coord> const& snake) {
-  Grid<CellCoord> parents(not_visited, w/2, h/2);
-  CellCoord parent = root;
+Grid<CellCoord> cell_tree_parents(CoordRange dims, RingBuffer<Coord> const& snake) {
+  Grid<CellCoord> parents(dims.w/2, dims.h/2, NOT_VISITED);
+  CellCoord parent = ROOT;
   for (int i=snake.size()-1 ; i >= 0; --i) {
     Coord c = snake[i];
     CellCoord cell_coord = cell(c);
-    if (parents[cell_coord] == not_visited) {
+    if (parents[cell_coord] == NOT_VISITED) {
       parents[cell_coord] = parent;
     }
     parent = cell_coord;
@@ -170,7 +168,7 @@ bool can_move_in_cell_tree(Grid<Coord> const& cell_parents, Coord a, Coord b, Di
   // condition 2 (only move to parent or unvisted cell)
   Coord cell_a = cell(a);
   Coord cell_b = cell(b);
-  return cell_b == cell_a || cell_parents[cell_b] == not_visited || cell_parents[cell_a] == cell_b;
+  return cell_b == cell_a || cell_parents[cell_b] == NOT_VISITED || cell_parents[cell_a] == cell_b;
 }
 
 Dir move_to_parent(Grid<Coord> const& cell_parents, Coord a) {
@@ -186,7 +184,7 @@ Dir move_to_parent(Grid<Coord> const& cell_parents, Coord a) {
 
 
 Unreachables cell_tree_unreachables(GameBase const& game, Grid<Step> const& dists) {
-  auto cell_parents = cell_tree_parents(game.snake);
+  auto cell_parents = cell_tree_parents(game.dimensions(), game.snake);
   auto can_move = [&](Coord from, Coord to, Dir dir) {
     return can_move_in_cell_tree(cell_parents, from, to, dir) && !game.grid[to];
   };
@@ -220,7 +218,7 @@ struct CellTreeAgent {
     }
     
     // Find shortest path satisfying 1,2
-    auto cell_parents = cell_tree_parents(game.snake);
+    auto cell_parents = cell_tree_parents(game.dimensions(), game.snake);
     auto edge = [&](Coord a, Coord b, Dir dir) {
       if (can_move_in_cell_tree(cell_parents, a, b, dir) && !game.grid[b]) {
         // small penalty for moving to same/different cell
@@ -232,14 +230,14 @@ struct CellTreeAgent {
         return INT_MAX;
       }
     };
-    auto paths = astar_shortest_path(edge, pos, game.apple_pos, 1000);
-    auto path = read_path(paths, pos, game.apple_pos);
+    auto dists = astar_shortest_path(game.grid.coords(), edge, pos, game.apple_pos, 1000);
+    auto path = read_path(dists, pos, game.apple_pos);
     auto pos2 = path.back();
     
     // Heuristic 3: prevent making parts of the grid unreachable
     if (detour != DetourStrategy::none) {
       auto after = after_moves(game, path, lookahead);
-      auto unreachable = cell_tree_unreachables(after, paths);
+      auto unreachable = cell_tree_unreachables(after, dists);
       if (unreachable.any) {
         if (detour == DetourStrategy::any) {
           // 3A: move in any other direction
@@ -254,7 +252,7 @@ struct CellTreeAgent {
           // 3B: move to one of the unreachable coords
           if (unreachable.dist_to_nearest < INT_MAX) {
             // move to an unreachable coord first
-            pos2 = first_step(paths, pos, unreachable.nearest);
+            pos2 = first_step(dists, pos, unreachable.nearest);
             cached_path.clear();
             return pos2 - pos;
           }

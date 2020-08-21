@@ -9,6 +9,12 @@
 #include <cmath>
 
 //------------------------------------------------------------------------------
+// Config
+//------------------------------------------------------------------------------
+
+CoordRange board_size = {30,30};
+
+//------------------------------------------------------------------------------
 // Playing full games
 //------------------------------------------------------------------------------
 
@@ -53,10 +59,10 @@ std::ostream& operator << (std::ostream& out, Stats const& stats) {
 }
 
 template <typename AgentGen>
-Stats play_multiple(AgentGen make_agent, int n = 100) {
+Stats play_multiple(AgentGen make_agent, CoordRange dims = board_size, int n = 100) {
   Stats stats;
   for (int i = 0; i < n; ++i) {
-    Game game;
+    Game game(dims);
     play(game, make_agent());
     stats.turns.push_back(game.turn);
     stats.wins.push_back(game.win());
@@ -83,13 +89,14 @@ int main(int argc, const char** argv) {
   }
   */
   //
-  Game game;
+  Game game(board_size);
   //auto agent = []{return FixedAgent{};};
   //auto agent = []{return FixedCycleAgent{random_hamiltonian_cycle(global_rng)};};
   auto agent = []{return CutAgent{};};
   //auto agent = []{return CellTreeAgent{};};
   //auto agent = []{return PerturbedHamiltonianCycle(make_path(coords));};
   //auto agent = []{return PerturbedHamiltonianCycle(random_hamiltonian_cycle(global_rng));};
+  //auto agent = []{return DynamicHamiltonianCycleRepair{make_path(board_size)};};
   
   if (1) {
     play(game, agent(), Visualize::no);
