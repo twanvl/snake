@@ -6,17 +6,17 @@
 
 // A zig-zag path:
 //  go up and down while going right, then move back left along the top row
-Dir zig_zag_path(Coord c) {
+Dir zig_zag_path(CoordRange range, Coord c) {
   if (c.y == 0 && c.x > 0) {
     return Dir::left;
   } else if (c.x % 2 == 0) {
-    if (c.y == h-1) {
+    if (c.y == range.h-1) {
       return Dir::right;
     } else {
       return Dir::down;
     }
   } else {
-    if (c.y == 1 && c.x != w-1) {
+    if (c.y == 1 && c.x != range.w-1) {
       return Dir::right;
     } else {
       return Dir::up;
@@ -28,7 +28,7 @@ Dir zig_zag_path(Coord c) {
 struct FixedAgent : Agent {
   Dir operator () (Game const& game) {
     Coord c = game.snake_pos();
-    return zig_zag_path(c);
+    return zig_zag_path(game.grid.coords(), c);
   }
 };
 
@@ -37,10 +37,10 @@ struct FixedAgent : Agent {
 //------------------------------------------------------------------------------
 
 // A Hamiltonian cycle
-Grid<Coord> make_path() {
-  Grid<Coord> path;
+Grid<Coord> make_path(CoordRange range) {
+  Grid<Coord> path(range);
   for (auto c : coords) {
-    path[c] = c + zig_zag_path(c);
+    path[c] = c + zig_zag_path(range, c);
   }
   return path;
 }

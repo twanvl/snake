@@ -25,9 +25,9 @@ bool is_hamiltonian_cycle(GridPath const& path) {
 
 // Make a Hamiltonian cycle given a w/2 * h/2 tree
 GridPath tree_to_hamiltonian_cycle(Grid<Coord> const& parent) {
-  GridPath path;
-  for (int y=0; y<h; ++y) {
-    for (int x=0; x<w; ++x) {
+  GridPath path(INVALID, parent.w*2, parent.h*2);
+  for (int y=0; y<path.h; ++y) {
+    for (int x=0; x<path.w; ++x) {
       Coord c = {x,y};
       Coord in, out;
       if (x%2 == 1 && y%2 == 0) { out = c+Dir::up;    in = c+Dir::left; }
@@ -36,8 +36,8 @@ GridPath tree_to_hamiltonian_cycle(Grid<Coord> const& parent) {
       if (x%2 == 1 && y%2 == 1) { out = c+Dir::right; in = c+Dir::up; }
       Coord c_cell = {x/2, y/2};
       Coord o_cell = {out.x/2, out.y/2};
-      assert(!valid(out) || o_cell != c_cell);
-      if (valid(out) && (parent[o_cell] == c_cell || parent[c_cell] == o_cell)) {
+      assert(!path.valid(out) || o_cell != c_cell);
+      if (path.valid(out) && (parent[o_cell] == c_cell || parent[c_cell] == o_cell)) {
         path[c] = out;
       } else {
         path[c] = in;
@@ -97,10 +97,10 @@ GridPath reverse(GridPath const& path) {
 }
 
 Coord path_from(GridPath const& path, Coord to) {
-  if (to.x > 0   && path[{to.x-1, to.y}] == to) return Coord{to.x-1, to.y};
-  if (to.x < w-1 && path[{to.x+1, to.y}] == to) return Coord{to.x+1, to.y};
-  if (to.y > 0   && path[{to.x, to.y-1}] == to) return Coord{to.x, to.y-1};
-  if (to.y < h-1 && path[{to.x, to.y+1}] == to) return Coord{to.x, to.y+1};
+  if (to.x > 0        && path[{to.x-1, to.y}] == to) return Coord{to.x-1, to.y};
+  if (to.x < path.w-1 && path[{to.x+1, to.y}] == to) return Coord{to.x+1, to.y};
+  if (to.y > 0        && path[{to.x, to.y-1}] == to) return Coord{to.x, to.y-1};
+  if (to.y < path.h-1 && path[{to.x, to.y+1}] == to) return Coord{to.x, to.y+1};
   throw "No path from neighbor";
 }
 
@@ -188,14 +188,14 @@ struct PerturbedHamiltonianCycle {
         Coord to = dist_goal < dist_tail ? goal : game.snake.back();
         auto paths = astar_shortest_path(edge, pos, to);
         Coord better_next = first_step(paths, pos, to);
-        if (valid(better_next) && !game.grid[better_next]) {
+        if (game.grid.valid(better_next) && !game.grid[better_next]) {
           next = better_next;
         }
       } else {
         // best shortcut direction
         for (Dir dir : dirs) {
           Coord b = pos + dir;
-          if (valid(b) && !game.grid[b]) {
+          if (game.grid.valid(b) && !game.grid[b]) {
             int dist_b = cycle_distance(pos, b);
             if (dist_b <= max_shortcut && dist_b > dist_next) {
               next = b;
@@ -238,7 +238,7 @@ bool repair_cycle(GridPath& cycle, Coord a, Coord b) {
   return false;
 }
 
-struct DyanmicHamiltonianCycleRepair {
+struct DynamicHamiltonianCycleRepair {
   GridPath cycle;
   bool recalculate_path = true;
   std::vector<Coord> cached_path;

@@ -7,12 +7,14 @@
 #include <cstdint>
 
 //------------------------------------------------------------------------------
-// Coordinates
+// Directions
 //------------------------------------------------------------------------------
 
 enum class Dir {
   up, down, left, right
 };
+
+const Dir dirs[] = {Dir::up, Dir::down, Dir::left, Dir::right};
 
 inline Dir operator - (Dir dir) {
   switch (dir) {
@@ -23,6 +25,20 @@ inline Dir operator - (Dir dir) {
     default:         return Dir::left;
   }
 }
+
+inline std::ostream& operator << (std::ostream& out, Dir dir) {
+  switch (dir) {
+    case Dir::up:    return out << "u";
+    case Dir::down:  return out << "d";
+    case Dir::left:  return out << "l";
+    case Dir::right: return out << "r";
+    default:         return out << "?";
+  }
+}
+
+//------------------------------------------------------------------------------
+// Coordinates
+//------------------------------------------------------------------------------
 
 struct Coord {
   int x,y;
@@ -42,16 +58,6 @@ inline Coord operator + (Coord a, Dir dir) {
     case Dir::left:  return Coord{a.x-1, a.y};
     case Dir::right:
     default:         return Coord{a.x+1, a.y};
-  }
-}
-
-inline std::ostream& operator << (std::ostream& out, Dir dir) {
-  switch (dir) {
-    case Dir::up:    return out << "u";
-    case Dir::down:  return out << "d";
-    case Dir::left:  return out << "l";
-    case Dir::right: return out << "r";
-    default:         return out << "?";
   }
 }
 
@@ -77,19 +83,23 @@ inline bool is_neighbor(Coord a, Coord b) {
   return false;
 }
 
+const Coord INVALID = {-1,-1};
+const Coord ROOT = {-2,-2};
+
 //------------------------------------------------------------------------------
 // Coordinate Grid
 //------------------------------------------------------------------------------
 
-const int w = 30, h = 30;
-
-inline bool valid(Coord a, int w=w, int h=h) {
-  return a.x >= 0 && a.x < w && a.y >= 0 && a.y < h;
-}
-
 struct CoordRange {
+  const int w, h;
+  
+  // Iterate over all coordinates
   struct iterator {
+  private:
     Coord coord;
+    int w;
+  public:
+    inline iterator(Coord coord, int w) : coord(coord), w(w) {}
     inline Coord operator * () const {
       return coord;
     }
@@ -107,15 +117,34 @@ struct CoordRange {
       return coord != that.coord;
     }
   };
-  iterator begin() const { return iterator{{0,0}}; }
-  iterator end()   const { return iterator{{0,h}}; }
-} coords;
+  
+  inline iterator begin() const {
+    return iterator{{0,0},w};
+  }
+  inline iterator end() const {
+    return iterator{{0,h},w};
+  }
+  inline bool valid(Coord a) const {
+    return a.x >= 0 && a.x < w && a.y >= 0 && a.y < h;
+  }
+  inline int size() const {
+    return w * h;
+  }
+};
 
-const Dir dirs[] = {Dir::up, Dir::down, Dir::left, Dir::right};
+const int w = 30, h = 30;
+
+const CoordRange coords = {w,h};
 
 //------------------------------------------------------------------------------
 // Grid
 //------------------------------------------------------------------------------
+
+template <typename T> struct ClearValue{};
+template <> struct ClearValue<bool> {
+  inline static bool value() { return false; }
+};
+
 
 // A grid data structure, storing values of type T
 // The grid has size w*h
@@ -123,8 +152,11 @@ template <typename T>
 class Grid {
 private:
   T* data;
-  int w,h;
 public:
+  const int w,h;
+  Grid(CoordRange range, T const& init = T())
+    : Grid(init, range.w, range.h)
+  {}
   Grid(T const& init = T(), int w=::w, int h=::h)
     : data(new T[w*h]), w(w), h(h)
   {
@@ -136,7 +168,7 @@ public:
     std::copy(that.begin(), that.end(), data);
   }
   Grid(Grid&& that)
-    : data(that.data)
+    : data(that.data), w(that.w), h(that.h)
   {
     that.data = nullptr;
   }
@@ -152,17 +184,26 @@ public:
   inline T const& operator [] (Coord a) const {
     return data[a.x + w*a.y];
   }
+  
+  inline CoordRange coords() const {
+    return {w,h};
+  }
   inline bool valid(Coord a) const {
-    return ::valid(a, w, h);
+    return coords().valid(a);
+  }
+  
+  // is the grid clear, i.e. inside the range and equal to ClearValue<T>::value()
+  inline bool is_clear(Coord a) const {
+    return valid(a) && (*this)[a] == ClearValue<T>::value();
   }
 
   using iterator = T*;
-  iterator begin() { return data; }
-  iterator end() { return &data[w*h]; }
+  inline iterator begin() { return data; }
+  inline iterator end() { return &data[w*h]; }
   
   using const_iterator = const T*;
-  const_iterator begin() const { return data; }
-  const_iterator end() const { return &data[w*h]; }
+  inline const_iterator begin() const { return data; }
+  inline const_iterator end() const { return &data[w*h]; }
 };
 
 //------------------------------------------------------------------------------

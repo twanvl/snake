@@ -28,7 +28,7 @@ Grid<Step> generic_shortest_path(CanMove const& can_move, Coord from, Coord to =
     for (auto a : queue) {
       for (auto d : dirs) {
         Coord b = a + d;
-        if (valid(b) && can_move(a,b,d) && out[b].dist > dist) {
+        if (coords.valid(b) && can_move(a,b,d) && out[b].dist > dist) {
           out[b].dist = dist;
           out[b].from = a;
           next.push_back(b);
@@ -98,7 +98,7 @@ Grid<Step> astar_shortest_path(Edge const& edges, Coord from, Coord to, int min_
     if (item.c == to) break;
     for (auto d : dirs) {
       Coord b = item.c + d;
-      if (!valid(b)) continue;
+      if (!coords.valid(b)) continue;
       auto edge = edges(item.c,b,d);
       if (edge == INT_MAX) continue;
       int new_dist = out[item.c].dist + edge;

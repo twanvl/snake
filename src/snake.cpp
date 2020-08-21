@@ -86,10 +86,10 @@ int main(int argc, const char** argv) {
   Game game;
   //auto agent = []{return FixedAgent{};};
   //auto agent = []{return FixedCycleAgent{random_hamiltonian_cycle(global_rng)};};
-  //auto agent = []{return CutAgent{};};
+  auto agent = []{return CutAgent{};};
   //auto agent = []{return CellTreeAgent{};};
-  //auto agent = []{return PerturbedHamiltonianCycle(make_path());};
-  auto agent = []{return PerturbedHamiltonianCycle(random_hamiltonian_cycle(global_rng));};
+  //auto agent = []{return PerturbedHamiltonianCycle(make_path(coords));};
+  //auto agent = []{return PerturbedHamiltonianCycle(random_hamiltonian_cycle(global_rng));};
   
   if (1) {
     play(game, agent(), Visualize::no);

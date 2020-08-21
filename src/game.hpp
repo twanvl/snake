@@ -10,16 +10,35 @@
 
 using Snake = RingBuffer<Coord>;
 
-class Game {
+class GameBase {
+public:
+  Grid<bool> grid;
+  Snake snake; // coordinates that contain the snake, front = head of snake, back = tail of snake
+  Coord apple_pos;
+  
+  GameBase(CoordRange range)
+    : grid(range, false)
+    , snake(range.size() + 1)
+    , apple_pos(INVALID)
+  {}
+  GameBase(GameBase const& that)
+    : grid(that.grid)
+    , snake(that.snake)
+    , apple_pos(that.apple_pos)
+  {}
+  
+  inline Coord snake_pos() const {
+    return snake.front();
+  }
+};
+
+class Game : public GameBase {
 private:
   RNG rng;
   
   Coord random_free_coord();
 
 public:
-  Grid<bool> grid;
-  Snake snake; // coordinates that contain the snake, front = head of snake, back = tail of snake
-  Coord apple_pos;
   int turn = 0;
   enum class State {
     playing, loss, win
@@ -28,8 +47,6 @@ public:
   inline bool win()  const { return state == State::win; }
   inline bool loss() const { return state == State::loss; }
   inline bool done() const { return state != State::playing; }
-  
-  inline Coord snake_pos() const { return snake.front(); }
   
   Game(RNG const& rng = global_rng.next_rng());
   Game(Game const&) = delete;
@@ -45,9 +62,8 @@ std::ostream& operator << (std::ostream& out, Game const& game);
 #include <algorithm>
 
 Game::Game(RNG const& base_rng)
-  : rng(base_rng)
-  , grid(false)
-  , snake(w*h+1)
+  : GameBase(coords)
+  , rng(base_rng)
 {
   Coord start = Coord{rng.random(w), rng.random(h)};
   snake.push_front(start);
@@ -71,7 +87,7 @@ void Game::move(Dir dir) {
   if (state != State::playing) return;
   turn++;
   Coord next = snake.front() + dir;
-  if (!valid(next) || grid[next]) {
+  if (!grid.valid(next) || grid[next]) {
     state = State::loss;
     return;
   }
@@ -161,7 +177,7 @@ Grid<std::string> box_draw_grid(Snake const& snake, Coord apple_pos) {
   draw_snake(grid, snake);
   return grid;
 }
-Grid<std::string> box_draw_grid(Game const& game) {
+Grid<std::string> box_draw_grid(GameBase const& game) {
   return box_draw_grid(game.snake, game.apple_pos);
 }
 

@@ -2,12 +2,72 @@
 #include "shortest_path.hpp"
 
 //------------------------------------------------------------------------------
-// Agent: tree based
+// Look ahead to what would happen if we were to follow a path
+//------------------------------------------------------------------------------
+
+enum class Lookahead {
+  one, // only look at what would happen with the move about to be made
+  many_keep_tail,
+  many_move_tail,
+};
+
+GameBase after_moves(GameBase const& game, std::vector<Coord> const& path, Lookahead lookahead) {
+  assert(is_neighbor(path.back(), game.snake_pos()));
+  GameBase after = game;
+  if (lookahead == Lookahead::one) {
+    auto pos_after = path.back();
+    after.grid[pos_after] = true;
+    after.snake.push_front(pos_after);
+  } else {
+    for (auto it = path.rbegin() ; it != path.rend() ; ++it) {
+      auto p = *it;
+      after.grid[p] = true;
+      after.snake.push_front(p);
+      if (lookahead == Lookahead::many_move_tail && p != game.apple_pos) {
+        after.grid[after.snake.back()] = false;
+        after.snake.pop_back();
+      }
+    }
+  }
+  return after;
+}
+
+//------------------------------------------------------------------------------
+// Unreachable parts of the grid
+//------------------------------------------------------------------------------
+
+struct Unreachables {
+  bool any = false;
+  Coord nearest = {-1,-1};
+  int dist_to_nearest = INT_MAX;
+};
+
+// Find unreachable parts of the grid
+// Usually used with after_moves()
+template <typename CanMove, typename GameLike>
+Unreachables unreachables(CanMove can_move, GameLike const& game, Grid<Step> const& dists) {
+  // are there unreachable coords?
+  auto reachable = flood_fill(can_move, game.snake_pos());
+  Unreachables out;
+  for (auto a : coords) {
+    if (!game.grid[a] && !reachable[a]) {
+      out.any = true;
+      if (dists[a].dist < out.dist_to_nearest) {
+        out.nearest = a;
+        out.dist_to_nearest = dists[a].dist;
+      }
+    }
+  }
+  return out;
+}
+
+//------------------------------------------------------------------------------
+// Cell moves
 //------------------------------------------------------------------------------
 
 // Consider the grid to be a smaller grid of 2x2 cells, like a bunch of two lane streets.
 // Each cell in the smaller grid can be one of 2^4-1 types, depending on which sides it is connected to (at least one)
-// These connected cells form a tree, to ensure that the path they represent is a Hamiltonian cycle.
+// When the connected cells form a spanning tree, the path they represent is a Hamiltonian cycle.
 
 // We follow right-hand drive.
 // For example the cell:
@@ -17,13 +77,27 @@
 //   ↓ ↑
 // is connected to bottom and right
 
-Dir tree_cell_move(bool connected[4], int x, int y) {
-  if (x == 1 && y == 0) return connected[0] ? Dir::up    : Dir::left;
-  if (x == 0 && y == 1) return connected[1] ? Dir::down  : Dir::right;
-  if (x == 0 && y == 0) return connected[2] ? Dir::left  : Dir::down;
-  if (x == 1 && y == 1) return connected[3] ? Dir::right : Dir::up;
-  throw "tree_cell_move";
+const Dir cell_moves_inside[] =
+  {Dir::down,  Dir::left,
+   Dir::right, Dir::up};
+const Dir cell_moves_outside[] =
+  {Dir::left, Dir::up,
+   Dir::down, Dir::right};
+
+// Direction that stays inside the cell
+inline Dir cell_move_inside(Coord c) {
+  return cell_moves_inside[(c.y%2)*2 + c.x%2];
 }
+
+// Direction that moves out of the cell
+inline Dir cell_move_outside(Coord c) {
+  return cell_moves_outside[(c.y%2)*2 + c.x%2];
+}
+
+inline bool is_cell_move(Coord c, Dir dir) {
+  return cell_move_inside(c) == dir || cell_move_outside(c) == dir;
+}
+
 
 bool can_move_in_tree_cell(int x, int y, Dir dir) {
   if (x == 1 && y == 0) return dir == Dir::up    || dir == Dir::left;
@@ -33,13 +107,9 @@ bool can_move_in_tree_cell(int x, int y, Dir dir) {
   return false;
 }
 
-bool inside_tree_cell(int x, int y, Dir dir) {
-  if (x == 1 && y == 0) return dir == Dir::left;
-  if (x == 0 && y == 1) return dir == Dir::right;
-  if (x == 0 && y == 0) return dir == Dir::down;
-  if (x == 1 && y == 1) return dir == Dir::up;
-  return false;
-}
+//------------------------------------------------------------------------------
+// Agent: tree based
+//------------------------------------------------------------------------------
 
 // We should be able to use a shortest-path algorithm on the original snake-level that maintains the cell and tree constraints
 // 1. Cell contraint means that only some moves are possible (2 dirs in each coord instead of 4)
@@ -79,7 +149,7 @@ const CellCoord root = {-2,-2};
 // note: the returned grid is only w/2 * h/2
 // {-1,-1} indicates cell is not visited
 // {-2,-2} indicates cell is root
-Grid<Coord> cell_tree_parents(RingBuffer<Coord> const& snake) {
+Grid<CellCoord> cell_tree_parents(RingBuffer<Coord> const& snake) {
   Grid<CellCoord> parents(not_visited, w/2, h/2);
   CellCoord parent = root;
   for (int i=snake.size()-1 ; i >= 0; --i) {
@@ -115,57 +185,12 @@ Dir move_to_parent(Grid<Coord> const& cell_parents, Coord a) {
 }
 
 
-// Find unreachable parts of the grid after moving along a path
-struct Unreachables {
-  bool any = false;
-  Coord nearest = {-1,-1};
-  int dist_to_nearest = INT_MAX;
-};
-enum class Lookahead {
-  one, // only look at what would happen with the move about to be made
-  many_keep_tail,
-  many_move_tail,
-};
-Unreachables find_unreachables_after_moves(Grid<bool> const& grid, Snake const& snake, Grid<Step> const& paths, std::vector<Coord> const& path, Lookahead lookahead) {
-  // situation after moving along the path
-  // note: path.back() is first step
-  assert(is_neighbor(path.back(), snake.front()));
-  Grid<bool> grid_after = grid;
-  RingBuffer<Coord> snake_after = snake;
-  Coord pos_after;
-  if (lookahead == Lookahead::one) {
-    pos_after = path.back();
-    grid_after[pos_after] = true;
-    snake_after.push_front(pos_after);
-  } else {
-    for (auto it = path.rbegin() ; it != path.rend() ; ++it) {
-      auto p = *it;
-      grid_after[p] = true;
-      snake_after.push_front(p);
-      if (lookahead == Lookahead::many_move_tail && p != path.front()) {
-        grid_after[snake_after.back()] = false;
-        snake_after.pop_back();
-      }
-    }
-    pos_after = path.front();
-  }
-  // are there unreachable coords?
-  auto cell_parents_after = cell_tree_parents(snake_after);
-  auto can_move_after = [&grid_after,&cell_parents_after](Coord a, Coord b, Dir dir) {
-    return can_move_in_cell_tree(cell_parents_after, a, b, dir) && !grid_after[b];
+Unreachables cell_tree_unreachables(GameBase const& game, Grid<Step> const& dists) {
+  auto cell_parents = cell_tree_parents(game.snake);
+  auto can_move = [&](Coord from, Coord to, Dir dir) {
+    return can_move_in_cell_tree(cell_parents, from, to, dir) && !game.grid[to];
   };
-  auto reachable = flood_fill(can_move_after, pos_after);
-  Unreachables out;
-  for (auto a : coords) {
-    if (!grid_after[a] && !reachable[a]) {
-      out.any = true;
-      if (paths[a].dist < out.dist_to_nearest) {
-        out.nearest = a;
-        out.dist_to_nearest = paths[a].dist;
-      }
-    }
-  }
-  return out;
+  return unreachables(can_move, game, dists);
 }
 
 enum class DetourStrategy {
@@ -213,7 +238,8 @@ struct CellTreeAgent {
     
     // Heuristic 3: prevent making parts of the grid unreachable
     if (detour != DetourStrategy::none) {
-      auto unreachable = find_unreachables_after_moves(game.grid, game.snake, paths, path, lookahead);
+      auto after = after_moves(game, path, lookahead);
+      auto unreachable = cell_tree_unreachables(after, paths);
       if (unreachable.any) {
         if (detour == DetourStrategy::any) {
           // 3A: move in any other direction
