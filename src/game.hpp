@@ -126,62 +126,80 @@ std::ostream& operator << (std::ostream& out, Grid<std::string> const& grid) {
   return out;
 }
 
-void draw_snake(Grid<std::string>& grid, Snake const& snake) {
-  for (int i=0; i < snake.size() ; ++i) {
-    Coord c = snake[i];
-    #define SNAKE_COLOR(x) "\033[32m" x "\033[0m"
-    //#define SNAKE_COLOR(x) x
-    grid[c] = SNAKE_COLOR("#");
-    if (i==0) {
-      grid[c] = SNAKE_COLOR("■");
-    } else if (i == snake.size()-1) {
-      Dir d = snake[i-1] - c;
-      if (d == Dir::up)    grid[c] = SNAKE_COLOR("╵");
-      if (d == Dir::down)  grid[c] = SNAKE_COLOR("╷");
-      if (d == Dir::left)  grid[c] = SNAKE_COLOR("╴");
-      if (d == Dir::right) grid[c] = SNAKE_COLOR("╶");
+template <typename Path, typename Color>
+void draw_path(Grid<std::string>& grid, Path const& path, Color color, bool cycle=false) {
+  for (auto it = path.begin(); it != path.end(); ++it) {
+    Coord c = *it;
+    if (!cycle && it == path.begin()) {
+      grid[c] = color("■");
     } else {
-      Dir d = c - snake[i+1];
-      Dir e = snake[i-1] - c;
-      if (d == Dir::up) {
-        if (e == Dir::up)    grid[c] = SNAKE_COLOR("│");
-        if (e == Dir::down)  grid[c] = SNAKE_COLOR("│");
-        if (e == Dir::left)  grid[c] = SNAKE_COLOR("┐");
-        if (e == Dir::right) grid[c] = SNAKE_COLOR("┌");
-      } else if (d == Dir::down) {
-        if (e == Dir::up)    grid[c] = SNAKE_COLOR("│");
-        if (e == Dir::down)  grid[c] = SNAKE_COLOR("│");
-        if (e == Dir::left)  grid[c] = SNAKE_COLOR("┘");
-        if (e == Dir::right) grid[c] = SNAKE_COLOR("└");
-      } else if (d == Dir::left) {
-        if (e == Dir::up)    grid[c] = SNAKE_COLOR("└");
-        if (e == Dir::down)  grid[c] = SNAKE_COLOR("┌");
-        if (e == Dir::left)  grid[c] = SNAKE_COLOR("─");
-        if (e == Dir::right) grid[c] = SNAKE_COLOR("─");
-      } else if (d == Dir::right) {
-        if (e == Dir::up)    grid[c] = SNAKE_COLOR("┘");
-        if (e == Dir::down)  grid[c] = SNAKE_COLOR("┐");
-        if (e == Dir::left)  grid[c] = SNAKE_COLOR("─");
-        if (e == Dir::right) grid[c] = SNAKE_COLOR("─");
+      auto prev_it = it;
+      if (prev_it == path.begin()) prev_it = path.end();
+      --prev_it;
+      auto next_it = it;
+      ++next_it;
+      if (next_it == path.end()) next_it = path.begin();
+      Dir d = c - *prev_it;
+      if (!cycle && next_it == path.begin()) {
+        if (d == Dir::up)    grid[c] = color("╷");
+        if (d == Dir::down)  grid[c] = color("╵");
+        if (d == Dir::left)  grid[c] = color("╶");
+        if (d == Dir::right) grid[c] = color("╴");
+      } else {
+        Dir e = *next_it - c;
+        if (d == Dir::up) {
+          if (e == Dir::up)    grid[c] = color("│");
+          if (e == Dir::down)  grid[c] = color("│");
+          if (e == Dir::left)  grid[c] = color("┐");
+          if (e == Dir::right) grid[c] = color("┌");
+        } else if (d == Dir::down) {
+          if (e == Dir::up)    grid[c] = color("│");
+          if (e == Dir::down)  grid[c] = color("│");
+          if (e == Dir::left)  grid[c] = color("┘");
+          if (e == Dir::right) grid[c] = color("└");
+        } else if (d == Dir::left) {
+          if (e == Dir::up)    grid[c] = color("└");
+          if (e == Dir::down)  grid[c] = color("┌");
+          if (e == Dir::left)  grid[c] = color("─");
+          if (e == Dir::right) grid[c] = color("─");
+        } else if (d == Dir::right) {
+          if (e == Dir::up)    grid[c] = color("┘");
+          if (e == Dir::down)  grid[c] = color("┐");
+          if (e == Dir::left)  grid[c] = color("─");
+          if (e == Dir::right) grid[c] = color("─");
+        }
       }
     }
   }
 }
 
+std::string green(std::string const& x) {
+  return "\033[32m" + x + "\033[0m";
+}
+std::string red(std::string const& x) {
+  return "\033[31;1m" + x + "\033[0m";
+}
+std::string gray(std::string const& x) {
+  return "\033[30;1m" + x + "\033[0m";
+}
+
+void draw_snake(Grid<std::string>& grid, Snake const& snake) {
+  draw_path(grid, snake, green);
+}
+
 Grid<std::string> box_draw_grid(GameBase const& game) {
   Grid<std::string> grid(game.grid.coords(), "·");
   if (true) {
-    #define GRAY(x) "\033[30;1m" x "\033[0m"
     for (int y=0; y<grid.h; y+=2) {
       for (int x=0; x<grid.w; x+=2) {
-        grid[{x,  y  }] = GRAY("╭");
-        grid[{x+1,y  }] = GRAY("╮");
-        grid[{x,  y+1}] = GRAY("╰");
-        grid[{x+1,y+1}] = GRAY("╯");
+        grid[{x,  y  }] = gray("╭");
+        grid[{x+1,y  }] = gray("╮");
+        grid[{x,  y+1}] = gray("╰");
+        grid[{x+1,y+1}] = gray("╯");
       }
     }
   }
-  grid[game.apple_pos] = "\033[31;1m●\033[0m";
+  grid[game.apple_pos] = red("●");
   draw_snake(grid, game.snake);
   return grid;
 }

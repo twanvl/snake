@@ -304,6 +304,39 @@ public:
   T const& operator[] (int i) const {
     return data[(begin_+i) % capacity_];
   }
+  
+  template <typename Ptr, typename Ref>
+  struct iterator_base {
+  private:
+    Ptr begin, end, data;
+  public:
+    inline iterator_base(Ptr begin, Ptr end, Ptr data) : begin(begin), end(end), data(data) {}
+    inline iterator_base& operator ++ () {
+      ++data;
+      if (data == end) data = begin;
+      return *this;
+    }
+    inline iterator_base& operator -- () {
+      if (data == begin) data = end;
+      --data;
+      return *this;
+    }
+    inline Ref operator * () const {
+      return *data;
+    }
+    inline bool operator == (iterator_base const& that) const {
+      return data == that.data;
+    }
+    inline bool operator != (iterator_base const& that) const {
+      return data != that.data;
+    }
+  };
+  using iterator = iterator_base<T*,T&>;
+  using const_iterator = iterator_base<const T*,const T&>;
+  iterator begin() { return iterator(data, data+capacity_, data+begin_); }
+  iterator end()   { return iterator(data, data+capacity_, data+end_); }
+  const_iterator begin() const { return const_iterator(data, data+capacity_, data+begin_); }
+  const_iterator end()   const { return const_iterator(data, data+capacity_, data+end_); }
 };
 
 //------------------------------------------------------------------------------
