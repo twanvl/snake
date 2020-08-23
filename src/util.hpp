@@ -22,7 +22,8 @@ inline std::ostream& operator << (std::ostream& out, Dir dir) {
     case Dir::up:    return out << "u";
     case Dir::down:  return out << "d";
     case Dir::left:  return out << "l";
-    case Dir::right: return out << "r";
+    case Dir::right:
+    default:         return out << "r";
   }
 }
 
@@ -31,7 +32,8 @@ inline Dir operator - (Dir dir) {
     case Dir::up:    return Dir::down;
     case Dir::down:  return Dir::up;
     case Dir::left:  return Dir::right;
-    case Dir::right: return Dir::left;
+    case Dir::right:
+    default:         return Dir::left;
   }
 }
 
@@ -40,7 +42,8 @@ inline Dir rotate_clockwise(Dir dir) {
     case Dir::up:    return Dir::right;
     case Dir::down:  return Dir::left;
     case Dir::left:  return Dir::up;
-    case Dir::right: return Dir::down;
+    case Dir::right:
+    default:         return Dir::down;
   }
 }
 
@@ -49,7 +52,8 @@ inline Dir rotate_counter_clockwise(Dir dir) {
     case Dir::up:    return Dir::left;
     case Dir::down:  return Dir::right;
     case Dir::left:  return Dir::down;
-    case Dir::right: return Dir::up;
+    case Dir::right:
+    default:         return Dir::up;
   }
 }
 

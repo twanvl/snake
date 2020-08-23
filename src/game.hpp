@@ -173,11 +173,17 @@ void draw_path(Grid<std::string>& grid, Path const& path, Color color, bool cycl
   }
 }
 
-std::string green(std::string const& x) {
-  return "\033[32m" + x + "\033[0m";
+std::string white(std::string const& x) {
+  return x;
 }
 std::string red(std::string const& x) {
   return "\033[31;1m" + x + "\033[0m";
+}
+std::string green(std::string const& x) {
+  return "\033[32m" + x + "\033[0m";
+}
+std::string yellow(std::string const& x) {
+  return "\033[33m" + x + "\033[0m";
 }
 std::string gray(std::string const& x) {
   return "\033[30;1m" + x + "\033[0m";
@@ -207,6 +213,14 @@ Grid<std::string> box_draw_grid(GameBase const& game) {
 std::ostream& operator << (std::ostream& out, Game const& game) {
   out << "turn " << game.turn << ", size " << game.snake.size() << (game.win() ? " WIN!" : game.loss() ? " LOSS" : "") << std::endl;
   return out << box_draw_grid(game);
+}
+
+std::ostream& operator << (std::ostream& out, Grid<bool> const& grid) {
+  Grid<std::string> vis(grid.dimensions());
+  std::transform(grid.begin(), grid.end(), vis.begin(), [](bool x) {
+    return x ? "#" : ".";
+  });
+  return out << vis;
 }
 
 //------------------------------------------------------------------------------

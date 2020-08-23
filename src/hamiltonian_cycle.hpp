@@ -114,6 +114,28 @@ void mark_path(GridPath const& path, Coord from, Coord to, Grid<T>& mark, T valu
   }
 }
 
+template <typename Color>
+Grid<std::string> draw_cycle(GridPath const& cycle, Color color) {
+  std::vector<Coord> path;
+  for (Coord c = {0,0};;) {
+    path.push_back(c);
+    c = cycle[c];
+    if (c == Coord{0,0}) break;
+  }
+  Grid<std::string> grid(cycle.dimensions(), ".");
+  draw_path(grid, path, color, true);
+  return grid;
+}
+template <typename Color>
+Grid<std::string> draw_cycle2(GridPath const& cycle, Color color) {
+  Grid<std::string> grid(cycle.dimensions(), ".");
+  const char* vis[] = {"↑","↓","←","→"};
+  for (auto c : cycle.coords()) {
+    grid[c] = color(vis[static_cast<int>(cycle[c]-c)]);
+  }
+  return grid;
+}
+
 
 //------------------------------------------------------------------------------
 // Perturbated Hamiltonian Cycle algorithm
@@ -223,32 +245,90 @@ struct PerturbedHamiltonianCycle {
 
 // Here the idea is to maintain and update a Hamiltonian cycle
 
-// Change a Hamiltonian cycle to have path[a] == b
+// Change a Hamiltonian cycle to have next[a] == d
 // patches up the path so it remains a cycle
 // returns success
-bool repair_cycle(GridPath& cycle, Coord a, Coord b) {
-  if (cycle[a] == b) return true; // already done
-  // Path is [...,a,c,...,d,b,...]
-  Coord c = cycle[a];
-  Coord d = path_from(cycle, b);
-  // Setting it to [...,a,b,...] would break off a path c -> ... -> d
+bool repair_cycle(Grid<bool> const& grid, GridPath& next, Coord a, Coord d) {
+  assert(is_neighbor(a,d));
+  assert(is_hamiltonian_cycle(next));
+  if (next[a] == d) return true; // already done
+  // Path is [...,a,b,...,c,d,...]
+  Coord b = next[a];
+  Coord c = path_from(next, d);
+  // Setting it to [...,a,d,...] would break off a path [b,..,c]
   // Can that be made into a cycle?
-  if (is_neighbor(c,d)) {
-    // Try to join [c,...,d] into another part of the path
+  if (is_neighbor(b,c)) {
+    // [c,b,...] is also 
+    // Mark cycle of nodes except those between a and d, call that cycle1
+    Grid<bool> cycle1(grid.dimensions(),false);
+    for (Coord x = d; x != a; x = next[x]) {
+      assert(!cycle1[x]);
+      cycle1[x] = true;
+    }
+    cycle1[a] = true;
+    // Try to join [b,....,c] into another part of cycle1
     // We can do that if there are nodes u,v not in the path adjacent to two nodes x,y in the c..d-cycle
     // in that case we can change
-    //   u -> v            u   v
+    //   x -> y            x   y
     //             into    ↓   ↑
-    //   x <- y            x   y
+    //   v <- u            v   u
     // Only consider u,v that
     //  * do not currently contain the snake
     //  * are after the goal(?)
-    Coord x=d, y=c; // [d,c], [c,c+], ... ,[d-,d]
-    for (Coord x=c, y=d; x!=c; x=y,y=cycle[x]) {
-      y=cycle[x];
+    for (Coord x=b; x!=c; x=next[x]) {
+      Coord y = next[x];
+      Dir xy = y-x;
+      for (Dir dir : {rotate_clockwise(xy), rotate_counter_clockwise(xy)}) {
+        Coord u = y+dir, v = x+dir;
+        if (cycle1.valid(u) && cycle1.valid(v) && cycle1[u] && cycle1[v] && next[u] == v && !grid[u] && !grid[v]) {
+          // we can fix the cycle
+          /*
+          std::cout << std::endl << "REPAIR" << std::endl;
+          std::cout << cycle1;
+          std::cout << draw_cycle(next, gray);
+          auto g = draw_cycle2(next, white);
+          g[a] = green("a");
+          g[b] = green("b");
+          g[c] = green("c");
+          g[d] = green("d");
+          g[x] = yellow("x");
+          g[y] = yellow("y");
+          g[u] = yellow("u");
+          g[v] = yellow("v");
+          std::cout << g;
+          */
+          next[a] = d;
+          next[c] = b;
+          next[x] = v;
+          next[u] = y;
+          //std::cout << draw_cycle(next, yellow);
+          assert(is_hamiltonian_cycle(next));
+          return true;
+        }
+      }
     }
   }
+  /*
+  auto g = draw_cycle2(next, white);
+  g[a] = green("a");
+  g[b] = green("b");
+  g[c] = green("c");
+  g[d] = green("d");
+  std::cout << g;
+  std::cout << "Repair failed" << std::endl;
+  */
   return false;
+}
+
+Grid<int> cycle_distances(GridPath cycle, Coord goal) {
+  Grid<int> dists(cycle.dimensions());
+  Coord c = goal;
+  int dist = cycle.size()-1;
+  do {
+    c = cycle[c];
+    dists[c] = dist--;
+  } while (c != goal);
+  return dists;
 }
 
 struct DynamicHamiltonianCycleRepair {
@@ -267,14 +347,16 @@ struct DynamicHamiltonianCycleRepair {
       cached_path.pop_back();
       return pos2 - pos;
     }
+    // distance to goal along current cycle
+    auto cycle_distance = cycle_distances(cycle, goal);
     // find path to goal
     auto can_move = [&](Coord from, Coord to, Dir) {
       return !game.grid[to];
     };
     auto edge = [&](Coord from, Coord to, Dir dir) {
-      return can_move(from,to,dir) ? 1 : INT_MAX;
+      return can_move(from,to,dir) ? 1000000 + cycle_distance[to] : INT_MAX;
     };
-    auto dists = astar_shortest_path(game.grid.coords(), edge, pos, goal);
+    auto dists = astar_shortest_path(game.grid.coords(), edge, pos, goal, 1000000);
     auto path = read_path(dists, pos, goal);
     Coord step = path.back();
     /*
@@ -297,7 +379,9 @@ struct DynamicHamiltonianCycleRepair {
       // cycle needs to be changed
       auto after = after_moves(game, path, Lookahead::one);
       
-      repair_cycle(cycle, pos, path.back());
+      if (!repair_cycle(after.grid, cycle, pos, path.back())) {
+        // Failed to repair, continue along path
+      }
     }
     // move along cycle
     return cycle[pos] - pos;

@@ -163,6 +163,14 @@ int main(int argc, const char** argv) {
     std::string arg = argv[i];
     if (arg
   }
+  Usage: snake <MODE> [options]
+  MODE can be:
+   * all: play all agents against each other
+   * list: list the agents
+   * help: show help
+   * <AGENT>: play games with agent
+  Options:
+   -n <N>: number of rounds
   */
   //
   //auto agent = []{return FixedAgent{};};
@@ -170,7 +178,7 @@ int main(int argc, const char** argv) {
   //auto agent = []{return CutAgent{};};
   //auto agent = []{return CellTreeAgent{};};
   //auto agent = []{return PerturbedHamiltonianCycle(make_path(board_size));};
-  //auto agent = []{return PerturbedHamiltonianCycle(random_hamiltonian_cycle(global_rng));};
+  //auto agent = []{return PerturbedHamiltonianCycle(random_hamiltonian_cycle(board_size, global_rng));};
   auto agent = []{return DynamicHamiltonianCycleRepair{make_path(board_size)};};
   
   if (1) {
