@@ -3,13 +3,27 @@
   <head>
     <meta charset="utf-8">
     <title>Snake</title>
+    <link rel="stylesheet" href="style.css">
   </head>
   <body>
     <noscript>
       You need to enable JavaScript to run this app.
     </noscript>
     <div id="root">
-      <canvas id="canvas" width="800" height="800">
+      <div id="anim">
+        <canvas id="canvas" width="802" height="802"></canvas>
+      </div>
+      <div id="info">
+        <div id="agent"></div>
+        <div id="turn"></div>
+        <div id="size"></div>
+        <div style="margin-top:2em;">
+        Use left/right arrows and home/end to seek.<br/>
+        Use up/down to control speed.<br/>
+        Use space to play/pause.
+        </div>
+      </div>
+      <canvas id="timeline" width="1202" height="40"></canvas>
     </div>
     <script type="text/javascript" src="game.json"></script>
     <script type="text/javascript" src="main.js"></script>

@@ -75,50 +75,6 @@ std::ostream& operator << (std::ostream& out, Stats const& stats) {
 }
 
 //------------------------------------------------------------------------------
-// Json output
-//------------------------------------------------------------------------------
-
-void write_json(std::ostream& out, int x) {
-  out << x;
-}
-void write_json(std::ostream& out, Coord c) {
-  out << "[" << c.x << "," << c.y << "]";
-}
-void write_json(std::ostream& out, CoordRange c) {
-  out << "[" << c.w << "," << c.h << "]";
-}
-
-template <typename T>
-void write_json(std::ostream& out, std::vector<T> const& xs) {
-  out << "[";
-  bool first = true;
-  for (auto x : xs) {
-    if (!first) {
-      out << ", ";
-    }
-    first = false;
-    write_json(out, x);
-  }
-  out << "]";
-}
-
-void write_json(std::ostream& out, LoggedGame const& game) {
-  out << "game = ";
-  out << "{" << std::endl;
-  out << "  \"size\": "; write_json(out, game.dimensions()); out << "," << std::endl;
-  out << "  \"snake_pos\": "; write_json(out, game.log.snake_pos); out << "," << std::endl;
-  out << "  \"snake_size\": "; write_json(out, game.log.snake_size); out << "," << std::endl;
-  out << "  \"apple_pos\": "; write_json(out, game.log.apple_pos); out << "," << std::endl;
-  out << "}" << std::endl;
-  out << ";";
-}
-
-void write_json(std::string const& filename, LoggedGame const& game) {
-  std::ofstream out(filename);
-  write_json(out, game);
-}
-
-//------------------------------------------------------------------------------
 // Configuration
 //------------------------------------------------------------------------------
 
@@ -260,6 +216,53 @@ void Config::parse_optional_args(int argc, const char** argv) {
 }
 
 //------------------------------------------------------------------------------
+// Json output
+//------------------------------------------------------------------------------
+
+void write_json(std::ostream& out, int x) {
+  out << x;
+}
+void write_json(std::ostream& out, Coord c) {
+  out << "[" << c.x << "," << c.y << "]";
+}
+void write_json(std::ostream& out, CoordRange c) {
+  out << "[" << c.w << "," << c.h << "]";
+}
+
+template <typename T>
+void write_json(std::ostream& out, std::vector<T> const& xs) {
+  out << "[";
+  bool first = true;
+  for (auto x : xs) {
+    if (!first) {
+      out << ", ";
+    }
+    first = false;
+    write_json(out, x);
+  }
+  out << "]";
+}
+
+void write_json(std::ostream& out, AgentFactory const& agent, LoggedGame const& game) {
+  out << "game = ";
+  out << "{" << std::endl;
+  out << "  \"agent\": \"" << agent.name << "\"," << std::endl;
+  out << "  \"agent_description\": \"" << agent.description << "\"," << std::endl;
+  out << "  \"size\": "; write_json(out, game.dimensions()); out << "," << std::endl;
+  out << "  \"snake_pos\": "; write_json(out, game.log.snake_pos); out << "," << std::endl;
+  out << "  \"snake_size\": "; write_json(out, game.log.snake_size); out << "," << std::endl;
+  out << "  \"apple_pos\": "; write_json(out, game.log.apple_pos); out << "," << std::endl;
+  out << "  \"eat_turns\": "; write_json(out, game.log.eat_turns); out << "," << std::endl;
+  out << "}" << std::endl;
+  out << ";";
+}
+
+void write_json(std::string const& filename, AgentFactory const& agent, LoggedGame const& game) {
+  std::ofstream out(filename);
+  write_json(out, agent, game);
+}
+
+//------------------------------------------------------------------------------
 // Playing full games
 //------------------------------------------------------------------------------
 
@@ -341,7 +344,7 @@ int main(int argc, const char** argv) {
         auto a = agent.make(config);
         play(game, *a, config);
         if (!config.json_file.empty()) {
-          write_json(config.json_file, game);
+          write_json(config.json_file, agent, game);
         }
       } else {
         auto stats = play_multiple(agent.make, config);
