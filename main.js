@@ -124,7 +124,7 @@ function init() {
   let timeline = document.getElementById("timeline");
   let timeline_ctx = timeline.getContext("2d");
 
-  agent_lbl.innerText = "agent: " + game.agent;
+  let game = undefined;
   
   let t = 0;
   let speed = 0.02;
@@ -133,6 +133,7 @@ function init() {
   let animFrame;
   
   function update() {
+    if (!game) return;
     t = Math.max(0,t);
     t = Math.min(game.snake_pos.length-1,t);
     render(ctx, game, t);
@@ -140,8 +141,12 @@ function init() {
     turn_lbl.innerText = "turn " + Math.floor(t) + "/" + (game.snake_pos.length-1);
     size_lbl.innerText = "length " + game.snake_size[Math.floor(t)];
   }
+
   function anim_step(timestamp) {
-    if (!playing) return;
+    if (!playing) {
+      animFrame = undefined;
+      return;
+    }
     if (prev_timestamp !== undefined) {
       t += (timestamp - prev_timestamp) * speed;
     }
@@ -176,6 +181,7 @@ function init() {
   }
   
   document.onkeydown = function(event) {
+    if (!game) return;
     if (event.key == ' ') {
       play_pause();
     } else if (event.key == "ArrowLeft") {
@@ -204,12 +210,11 @@ function init() {
   };
   
   function seek(event) {
+    if (!game) return;
     let x = event.offsetX;
     let w = timeline.width;
-    //if (x>1.5 && x<w-1.5) {
     t = (x-1.5) * (game.snake_pos.length-1) / (w-3);
     update();
-    //}
   }
   
   let button = 0;
@@ -224,7 +229,32 @@ function init() {
     if (button > 0) seek(event);
   };
   
-  play();
+  function load(data) {
+    game = data;
+    agent_lbl.innerText = "agent: " + game.agent;
+    t = 0;
+    play();
+  }
+  
+  function unload() {
+    game = undefined;
+    turn_lbl.innerText = "";
+    size_lbl.innerText = "";
+    agent_lbl.innerText = "loading...";
+  }
+  
+  // Load json file specified by ?f=.. parameter
+  let params = new URLSearchParams(location.search);
+  let file = params.get("f");
+  if (!file) file = 'game.json';
+  console.log(file);
+  fetch(file)
+    .then(response => response.json())
+    .then(load)
+    .catch(error => console.log(error));
+  
+  unload();
+  update();
 }
 
 let stripes = false;
