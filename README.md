@@ -74,7 +74,10 @@ Can be reproduced with `snake all`
 
 ## Visualization
 
-There is javascript code to visualize a run in ./visualize.
+There is javascript code to visualize a run in ./visualize. To use it:
+
+    snake <agent> --json visualize/game.json
+    $browser visualize/index.html
 
 TODO: Here are some visualizations of runs of the different agents
 
