@@ -13,6 +13,8 @@ A bunch of different algorithms that play the game of snake.
     ·······└────┘·······
     ····················
 
+The snake moves around on a grid. Each time it eats an "apple" the snake grows longer. If the snake hits itself it dies, if the entire grid is filled the game is won.
+
 ## Usage
 
 The program runs on the command line, and comes with help.
@@ -30,11 +32,14 @@ To build use `cmake`:
 
 The idea here is to limit the moves the snake can make. In each 2×2 cell it is always 'driving' on the right. So at any point there are only two possible moves. If the snake moves from one cell to another then the cells are connected.
 If the connected cells form a tree, then the path of the snake must be a Hamiltonian cycle.
+And if the connected cells form a tree, then the path of the snake must be a Hamiltonian cycle. You can also immagine the tree as a maze and the snake walking around it, keeping its right hand on the wall.
 
 So, we enforce the following conditions
 * Only make moves consistent with right-hand-driving in the 2×2 cell
 * Only move to parents or unvisited nodes in the tree (this prevents cycles)
 * Make sure that nodes don't become inaccessible (that would prevent a full spanning tree/Hamiltonian cycle from existing)
+
+The first two conditions can be checked inside the shortest path algorithm, so we get a shortest path consistent with them. The third condition is trickier, and the algorithm uses some heuristics there. A key trick is to allow parts of the grid to become temporarily inaccessible, as long as they are accessible again when the snake reaches the goal (because the tail has moved).
 
 ### Simple fixed agents
 Agents that follow a hardcoded Hamiltonian Cycle.
@@ -67,6 +72,7 @@ Number of steps to finish the game on a 30×30 grid (over 100 runs)
 |cell           |  49178.4|   2187.1|    44217|    47628|    48966|    50592|    56266|      0.0%|
 |cell1          |  57393.5|   2528.5|    52207|    55668|    57332|    59260|    63365|      0.0%|
 |cell-fixed     |  52035.8|   2400.6|    47367|    50604|    51721|    53440|    58447|      0.0%|
+|cell-variant   |  47918.1|   2095.2|    43291|    46431|    47688|    49374|    53170|      0.0%|
 |phc            | 103496.7|   2197.7|    98052|   101700|   103457|   105180|   109541|      0.0%|
 |dhcr           |  60690.3|   2571.3|    55241|    59097|    60627|    62400|    67208|      3.0%|
 
