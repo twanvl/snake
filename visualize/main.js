@@ -246,7 +246,7 @@ function init() {
   // Load json file specified by ?f=.. parameter
   let params = new URLSearchParams(location.search);
   let file = params.get("f");
-  if (!file) file = 'game.json';
+  if (!file) file = 'examples/cell.json';
   console.log(file);
   fetch(file)
     .then(response => response.json())
