@@ -139,7 +139,7 @@ Grid<std::string> draw_cycle2(GridPath const& cycle, Color color) {
 
 //------------------------------------------------------------------------------
 // Perturbated Hamiltonian Cycle algorithm
-// see https://johnlfux.com/
+// see https://johnflux.com/2015/05/02/nokia-6110-part-3-algorithms/
 //------------------------------------------------------------------------------
 
 struct PerturbedHamiltonianCycle : Agent {

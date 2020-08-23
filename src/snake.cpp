@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <cmath>
 #include <fstream>
+#include <iomanip>
 #include <memory>
 #include <functional>
 
@@ -128,6 +129,7 @@ struct Config {
   int num_rounds = 100;
   CoordRange board_size = {30,30};
   Trace trace = Trace::no;
+  bool quiet = false;
   std::string json_file;
   RNG rng = global_rng;
   
@@ -144,13 +146,13 @@ struct AgentFactory {
   std::function<std::unique_ptr<Agent>(Config&)> make;
 };
 AgentFactory agents[] = {
-  {"zigzag", "Follows a fixed zig-zag cycle", [](Config&) {
+  {"zig-zag", "Follows a fixed zig-zag cycle", [](Config&) {
     return std::make_unique<FixedZigZagAgent>();
   }},
   {"fixed", "Follows a fixed but random cycle", [](Config& config) {
     return std::make_unique<FixedCycleAgent>(random_hamiltonian_cycle(config.board_size, config.rng));
   }},
-  {"cut", "Follows a zig-zag cycle, but can take shortcuts", [](Config& config) {
+  {"zig-zag-cut", "Follows a zig-zag cycle, but can take shortcuts", [](Config& config) {
     return std::make_unique<CutAgent>(config.board_size);
   }},
   {"cell", "Limit movement to a tree of 2x2 cells", [](Config&) {
@@ -179,8 +181,8 @@ AgentFactory agents[] = {
 void list_agents(std::ostream& out = std::cout) {
   out << "Available agents:" << std::endl;
   for (auto const& a : agents) {
-    out << "  " << a.name << ":" << std::endl;
-    out << "         " << a.description << std::endl;
+    out << "  " << std::left << std::setw(20) << a.name;
+    out << a.description << std::endl;
   }
 }
 
@@ -203,6 +205,7 @@ void print_help(const char* name, std::ostream& out = std::cout) {
   out << "These modes are available:" << endl;
   out << "  help                Show this message." << endl;
   out << "  list                List available agents." << endl;
+  out << "  all                 Play all agents against each other, output csv summary." << endl;
   out << "  <agent>             Play with the given agent." << endl;
   out << endl;
   out << "Optional arguments:" << endl;
@@ -211,7 +214,10 @@ void print_help(const char* name, std::ostream& out = std::cout) {
   out << "      --seed <n>      Random seed." << endl;
   out << "  -T, --trace-all     Print the game state after each move." << endl;
   out << "  -t, --trace         Print the game state each time the snake eats an apple." << endl;
+  out << "  -q, --quiet         Don't print extra output." << endl;
   out << "  -j, --json <file>   Write log of one run a json file." << endl;
+  out << endl;
+  list_agents(out);
 }
 
 void Config::parse_optional_args(int argc, const char** argv) {
@@ -242,6 +248,8 @@ void Config::parse_optional_args(int argc, const char** argv) {
       trace = Trace::eat;
     } else if (arg == "-T" || arg == "--trace-all") {
       trace = Trace::all;
+    } else if (arg == "-q" || arg == "--quiet") {
+      quiet = true;
     } else{
       throw std::invalid_argument("Unknown argument: " + arg);
     }
@@ -275,13 +283,33 @@ Stats play_multiple(AgentGen make_agent, Config& config) {
     auto agent = make_agent(config);
     play(game, *agent, config);
     stats.add(game);
-    if (!game.win()) std::cout << game;
-    std::cout << (i+1) << "/" << config.num_rounds << "  " << stats << "\033[1K\r" << std::flush;
+    if (!config.quiet) {
+      if (!game.win()) std::cout << game;
+      std::cout << (i+1) << "/" << config.num_rounds << "  " << stats << "\033[1K\r" << std::flush;
+    }
   }
-  std::cout << "\033[K\r";
+  if (!config.quiet) std::cout << "\033[K\r";
   return stats;
 }
 
+void play_all_agents(Config& config, std::ostream& out = std::cout) {
+  using namespace std;
+  out << "agent, mean, stddev, min, q.25, median, q.75, max, lost" << endl;
+  for (auto const& agent : agents) {
+    out << left << setw(15) << agent.name << ", " << flush;
+    auto stats = play_multiple(agent.make, config);
+    out << right << fixed << setprecision(1) << setw(10);
+    out << setw(8) << mean(stats.turns) << ", ";
+    out << setw(8) << stddev(stats.turns) << ", ";
+    out << setprecision(0);
+    for (auto q : quantiles(stats.turns)) {
+      out << setw(8) << q << ", ";
+    }
+    out << setprecision(1);
+    out << setw(8) << ((1-mean(stats.wins))*100) << "%" << endl;
+  }
+}
+      
 //------------------------------------------------------------------------------
 // Main
 //------------------------------------------------------------------------------
@@ -295,6 +323,12 @@ int main(int argc, const char** argv) {
       print_help(argv[0]);
     } else if (mode == "list") {
       list_agents();
+    } else if (mode == "all") {
+      Config config;
+      config.quiet = true;
+      config.parse_optional_args(argc-2, argv+2);
+      
+      play_all_agents(config);
     } else {
       auto agent = find_agent(mode);
       Config config;
