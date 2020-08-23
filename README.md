@@ -76,9 +76,15 @@ Can be reproduced with `snake all`
 
 There is javascript code to visualize a run in ./visualize. To use it:
 
-    snake <agent> --json visualize/game.json
-    $browser visualize/index.html
+    snake <agent> --json game.json
+    $browser visualize/index.html?f=path/to/game.json
 
-TODO: Here are some visualizations of runs of the different agents
+Here are some visualizations of runs of the different agents
 
+* [zig-zag](https://twanvl.github.io/snake/?f=examples/zig-zag.json): Follows a fixed zig-zag cycle
+* [zig-zag-cut](https://twanvl.github.io/snake/?f=examples/zig-zag-cut.json): Follows a zig-zag cycle, but can take shortcuts
+* [fixed](https://twanvl.github.io/snake/?f=examples/fixed.json): Follows a fixed but random cycle
+* [cell](https://twanvl.github.io/snake/?f=examples/cell.json): Cell tree algorithm
+* [phc](https://twanvl.github.io/snake/?f=examples/phc.json): Perturbed Hamiltonian cycle
+* [dhcr](https://twanvl.github.io/snake/?f=examples/dhcr.json): Dynamic Hamiltonian Cycle Repair
 
