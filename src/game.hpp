@@ -46,6 +46,9 @@ public:
   enum class State {
     playing, loss, win
   } state = State::playing;
+  enum class Event {
+    none, move, eat, lose
+  };
   
   inline bool win()  const { return state == State::win; }
   inline bool loss() const { return state == State::loss; }
@@ -53,7 +56,7 @@ public:
   
   Game(CoordRange dimensions, RNG const& rng = global_rng.next_rng());
   Game(Game const&) = delete;
-  void move(Dir dir);
+  Event move(Dir dir);
 
 private:
   RNG rng;
@@ -91,14 +94,21 @@ Coord Game::random_free_coord() {
   throw "no free coord";
 }
 
-void Game::move(Dir dir) {
-  if (state != State::playing) return;
+Game::Event Game::move(Dir dir) {
+  if (state != State::playing) return Event::none;
   turn++;
   Coord next = snake.front() + dir;
   if (!grid.valid(next) || grid[next]) {
     state = State::loss;
-    return;
+    return Event::lose;
   }
+  // lose after taking too long
+  int max_turns = grid.size() * grid.size();
+  if (turn > max_turns) {
+    state = State::loss;
+    return Event::lose;
+  }
+  // move
   snake.push_front(next);
   grid[next] = true;
   if (next == apple_pos) {
@@ -108,13 +118,18 @@ void Game::move(Dir dir) {
     } else {
       apple_pos = random_free_coord();
     }
+    return Event::eat;
   } else {
     // remove tail
     grid[snake.back()] = false;
     snake.pop_back();
+    return Event::move;
   }
 }
 
+//------------------------------------------------------------------------------
+// Printing game state
+//------------------------------------------------------------------------------
 
 std::ostream& operator << (std::ostream& out, Grid<std::string> const& grid) {
   for (int y=0; y<grid.h; ++y) {

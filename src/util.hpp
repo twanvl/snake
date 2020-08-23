@@ -95,7 +95,7 @@ inline Dir operator - (Coord a, Coord b) {
     if (a.x == b.x+1) return Dir::right;
   }
   std::cout << "Not neighbors: " << a << " and " << b << std::endl;
-  throw "Not a dir";
+  throw std::logic_error("Not a dir");
 }
 
 inline int manhattan_distance(Coord a, Coord b) {
@@ -115,7 +115,7 @@ const Coord ROOT = {-2,-2};
 //------------------------------------------------------------------------------
 
 struct CoordRange {
-  const int w, h;
+  int w, h;
   
   // Iterate over all coordinates
   struct iterator {

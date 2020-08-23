@@ -197,18 +197,21 @@ enum class DetourStrategy {
   nearest_unreachable
 };
 
-struct CellTreeAgent {
-  const bool recalculate_path = true;
-  //const Lookahead lookahead = Lookahead::one;
-  const Lookahead lookahead = Lookahead::many_move_tail;
-  const DetourStrategy detour = DetourStrategy::nearest_unreachable;
+struct CellTreeAgent : Agent {
+public:
+  // config
+  bool recalculate_path = true;
+  Lookahead lookahead = Lookahead::many_move_tail;
+  DetourStrategy detour = DetourStrategy::nearest_unreachable;
   // penalties
-  const int same_cell_penalty = 0;
-  const int new_cell_penalty = 0;
-  const int parent_cell_penalty = 0;
-  
+  int same_cell_penalty = 0;
+  int new_cell_penalty = 0;
+  int parent_cell_penalty = 0;
+
+private:
   std::vector<Coord> cached_path;
-  
+
+public:
   Dir operator () (Game const& game) {
     Coord pos = game.snake_pos();
     if (!cached_path.empty() && !recalculate_path) {

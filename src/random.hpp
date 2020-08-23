@@ -33,8 +33,6 @@ public:
     return out;
   }
 
-  void start() {} // for compatability with low variance RNG
-
   // for compatability with keyed RNG
   template <typename Key>
   inline int random(int n, Key key) {

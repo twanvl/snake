@@ -25,7 +25,7 @@ Dir zig_zag_path(CoordRange dims, Coord c) {
 }
 
 // Follow a fixed path
-struct FixedAgent : Agent {
+struct FixedZigZagAgent : Agent {
   Dir operator () (Game const& game) {
     Coord c = game.snake_pos();
     return zig_zag_path(game.grid.coords(), c);
@@ -46,8 +46,10 @@ Grid<Coord> make_path(CoordRange dims) {
 }
 
 // agent that maintains a hamiltonian path
-struct FixedCycleAgent {
+struct FixedCycleAgent : Agent {
   Grid<Coord> path;
+  
+  FixedCycleAgent(Grid<Coord> const& path) : path(path) {}
   
   Dir operator () (Game const& game) {
     Coord c = game.snake_pos();
@@ -68,11 +70,14 @@ bool any(Grid<bool> const& grid, int x0, int x1, int y0, int y1) {
   return false;
 }
 
-const int MAX_W = 30;
 struct CutAgent : Agent {
-  int cuts[MAX_W] = {1};
+  std::vector<int> cuts;
   bool move_right = true;
   bool quick_dir_change = true;
+
+  CutAgent(CoordRange dims)
+    : cuts(dims.w, 1)
+  {}
 
   Dir operator () (Game const& game) {
     Coord c = game.snake_pos();

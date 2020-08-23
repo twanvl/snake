@@ -142,12 +142,15 @@ Grid<std::string> draw_cycle2(GridPath const& cycle, Color color) {
 // see https://johnlfux.com/
 //------------------------------------------------------------------------------
 
-struct PerturbedHamiltonianCycle {
+struct PerturbedHamiltonianCycle : Agent {
+public:
+  const bool use_shortest_path = false;
+
+private:
   GridPath cycle;
   Grid<int> cycle_order;
-  
-  const bool use_shortest_path = false;
-  
+
+public:
   PerturbedHamiltonianCycle(GridPath const& cycle)
     : cycle(cycle)
     , cycle_order(cycle.dimensions(), -1)
@@ -172,7 +175,7 @@ struct PerturbedHamiltonianCycle {
     else return order_b - order_a + cycle_order.size();
   }
   
-  Dir operator () (Game const& game) const {
+  Dir operator () (Game const& game) {
     Coord pos = game.snake_pos();
     Coord goal = game.apple_pos;
     Coord next = cycle[pos];
@@ -331,12 +334,14 @@ Grid<int> cycle_distances(GridPath cycle, Coord goal) {
   return dists;
 }
 
-struct DynamicHamiltonianCycleRepair {
+struct DynamicHamiltonianCycleRepair : Agent {
   GridPath cycle;
   bool recalculate_path = true;
   const int wall_follow_overshoot = 0; // 0 to disable
   int wall_follow_mode = 0;
   std::vector<Coord> cached_path;
+  
+  DynamicHamiltonianCycleRepair(GridPath const& cycle) : cycle(cycle) {}
   
   Dir operator () (Game const& game) {
     Coord pos = game.snake_pos();
