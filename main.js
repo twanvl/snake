@@ -6,22 +6,28 @@ function lerp(a,b,t) {
 
 // Render a frame
 function render(ctx, game, t) {
-  let scale = ctx.canvas.width / game.size[0];
+  let scale = (ctx.canvas.width-2) / game.size[0];
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.save();
+  ctx.translate(1,1);
   
   // draw grid
-  ctx.beginPath();
+  ctx.strokeStyle = dark ? "#888" : "#ccc";
+  ctx.lineWidth = 1;
   for (let x=0; x<=game.size[0]; ++x) {
+    ctx.lineWidth = x%2 ? 0.8 : 2;
+    ctx.beginPath();
     ctx.moveTo(x*scale, 0);
     ctx.lineTo(x*scale, game.size[1]*scale);
+    ctx.stroke();
   }
   for (let y=0; y<=game.size[1]; ++y) {
+    ctx.lineWidth = y%2 ? 0.8 : 2;
+    ctx.beginPath();
     ctx.moveTo(0, y*scale);
     ctx.lineTo(game.size[0]*scale, y*scale);
+    ctx.stroke();
   }
-  ctx.strokeStyle = "#ccc";
-  ctx.lineWidth = 1;
-  ctx.stroke();
   
   // position in time
   t = Math.min(t, game.snake_pos.length-1);
@@ -32,7 +38,7 @@ function render(ctx, game, t) {
     let apple = game.apple_pos[ti];
     ctx.beginPath();
     ctx.arc((apple[0]+0.5)*scale, (apple[1]+0.5)*scale, 0.4*scale, 0, 2 * Math.PI);
-    ctx.fillStyle = "#e00";
+    ctx.fillStyle = dark ? "#f00" : "#e00";
     ctx.fill();
   }
   
@@ -56,7 +62,7 @@ function render(ctx, game, t) {
   }
   p = pos(t);
   ctx.lineTo((p[0]+0.5)*scale, (p[1]+0.5)*scale);
-  ctx.strokeStyle = "#0a0";
+  ctx.strokeStyle = dark ? "#0b0" : "#0a0";
   ctx.lineWidth = 0.4 * scale;
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
@@ -72,29 +78,156 @@ function render(ctx, game, t) {
   // snake head
   ctx.beginPath();
   ctx.arc((p[0]+0.5)*scale, (p[1]+0.5)*scale, 0.4*scale, 0, 2 * Math.PI);
-  ctx.fillStyle = "#0a0";
+  ctx.fillStyle = dark ? "#0b0" : "#0a0";
   ctx.fill();
+  
+  ctx.restore();
+}
+
+function render_timeline(ctx, game, t) {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  let w = ctx.canvas.width, h = ctx.canvas.height;
+  let scale = (w-3) / game.snake_pos.length;
+  
+  // rect
+  ctx.beginPath();
+  ctx.rect(0.5,4.5,w-1,h-8);
+  ctx.strokeStyle = dark ? "#888" : "#ccc";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  
+  // current time
+  let x = 1.5 + t * scale;
+  ctx.beginPath();
+  ctx.moveTo(x,0); ctx.lineTo(x,h);
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = dark ? "#0b0" : "#0a0";
+  ctx.stroke();
+  
+  // apple times
+  ctx.lineWidth = 0.5;
+  ctx.strokeStyle = dark ? "#f00" : "#e00";
+  for (let e of game.eat_turns) {
+    let x = 1.5 + e * scale;
+    ctx.beginPath();
+    ctx.moveTo(x,5); ctx.lineTo(x,h-4);
+    ctx.stroke();
+  }
+}
+
+function init() {
+  let canvas = document.getElementById("canvas");
+  let ctx = canvas.getContext("2d");
+  let agent_lbl = document.getElementById("agent");
+  let turn_lbl = document.getElementById("turn");
+  let size_lbl = document.getElementById("size");
+  let timeline = document.getElementById("timeline");
+  let timeline_ctx = timeline.getContext("2d");
+
+  agent_lbl.innerText = "agent: " + game.agent;
+  
+  let t = 0;
+  let speed = 0.02;
+  let prev_timestamp = undefined;
+  let playing = false;
+  let animFrame;
+  
+  function update() {
+    t = Math.max(0,t);
+    t = Math.min(game.snake_pos.length-1,t);
+    render(ctx, game, t);
+    render_timeline(timeline_ctx, game, t);
+    turn_lbl.innerText = "turn " + Math.floor(t) + "/" + (game.snake_pos.length-1);
+    size_lbl.innerText = "length " + game.snake_size[Math.floor(t)];
+  }
+  function anim_step(timestamp) {
+    if (!playing) return;
+    if (prev_timestamp !== undefined) {
+      t += (timestamp - prev_timestamp) * speed;
+    }
+    prev_timestamp = timestamp;
+    update();
+    // next frame?
+    if (t >= game.snake_pos.length-1) {
+      pause();
+    } else {
+      animFrame = requestAnimationFrame(anim_step);
+    }
+  }
+  
+  function play() {
+    playing = true;
+    if (!animFrame) {
+      animFrame = requestAnimationFrame(anim_step);
+    }
+  }
+  function pause() {
+    playing = false;
+    if (animFrame) {
+      cancelAnimationFrame(animFrame);
+      animFrame = undefined;
+      prev_timestamp = undefined;
+    }
+  }
+  
+  function play_pause() {
+    if (playing) pause();
+    else play();
+  }
+  
+  document.onkeydown = function(event) {
+    if (event.key == ' ') {
+      play_pause();
+    } else if (event.key == "ArrowLeft") {
+      t = Math.max(0, t - 100);
+      update();
+      event.cancel = true;
+    } else if (event.key == "ArrowRight") {
+      t = Math.min(game.snake_pos.length-1, t + 100);
+      update();
+      event.cancel = true;
+    } else if (event.key == "Home") {
+      t = 0;
+      update();
+      event.cancel = true;
+    } else if (event.key == "End") {
+      t = game.snake_pos.length-1;
+      update();
+      event.cancel = true;
+    } else if (event.key == "ArrowUp") {
+      speed *= 1.5;
+      event.cancel = true;
+    } else if (event.key == "ArrowDown") {
+      speed /= 1.5;
+      event.cancel = true;
+    }
+  };
+  
+  function seek(event) {
+    let x = event.offsetX;
+    let w = timeline.width;
+    //if (x>1.5 && x<w-1.5) {
+    t = (x-1.5) * (game.snake_pos.length-1) / (w-3);
+    update();
+    //}
+  }
+  
+  let button = 0;
+  timeline.onmousedown = function(event) {
+    seek(event);
+    button++;
+  };
+  timeline.onmouseup = function(event) {
+    button--;
+  };
+  timeline.onmousemove = function(event) {
+    if (button > 0) seek(event);
+  };
+  
+  play();
 }
 
 let stripes = false;
+let dark = true;
 
-let canvas = document.getElementById("canvas");
-let ctx = canvas.getContext("2d");
-//render(ctx, game, 0);
-//render(ctx, game, 100.5);
-
-let t = 100;
-//let speed = 0.01;
-let speed = 0.005;
-var prev_timestamp = undefined;
-function render_step(timestamp) {
-  //let speed = 0.01 + t/1000;
-  if (prev_timestamp !== undefined) {
-    t += (timestamp - prev_timestamp) * speed;
-  }
-  prev_timestamp = timestamp;
-  render(ctx, game, t);
-  requestAnimationFrame(render_step);
-}
-requestAnimationFrame(render_step);
-
+init();
