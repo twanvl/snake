@@ -219,8 +219,10 @@ void Config::parse_optional_args(int argc, const char** argv) {
       json_file = argv[++i];
     } else if (arg == "-t" || arg == "--trace") {
       trace = Trace::eat;
+      num_rounds = 1;
     } else if (arg == "-T" || arg == "--trace-all") {
       trace = Trace::all;
+      num_rounds = 1;
     } else if (arg == "-q" || arg == "--quiet") {
       quiet = true;
     } else if (arg == "-j" || arg == "--threads" || arg == "--num-threads") {
@@ -395,7 +397,7 @@ int main(int argc, const char** argv) {
       auto agent = find_agent(mode);
       Config config;
       config.parse_optional_args(argc-2, argv+2);
-      if (config.trace != Trace::no || !config.json_file.empty()) {
+      if (!config.json_file.empty()) {
         LoggedGame game(config.board_size, config.rng.next_rng());
         auto a = agent.make(config);
         play(game, *a, config);

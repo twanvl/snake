@@ -12,8 +12,8 @@ enum class Lookahead {
 };
 
 GameBase after_moves(GameBase const& game, std::vector<Coord> const& path, Lookahead lookahead) {
-  assert(is_neighbor(path.back(), game.snake_pos()));
   GameBase after = game;
+  assert(is_neighbor(path.back(), game.snake_pos()));
   if (lookahead == Lookahead::one) {
     auto pos_after = path.back();
     after.grid[pos_after] = true;
@@ -236,6 +236,19 @@ public:
     auto dists = astar_shortest_path(game.grid.coords(), edge, pos, game.apple_pos, 1000);
     auto path = read_path(dists, pos, game.apple_pos);
     auto pos2 = path.back();
+    
+    if (pos2 == INVALID) {
+      if (!cached_path.empty()) {
+        pos2 = cached_path.back();
+      } else {
+        // We somehow divided the grid into two parts.
+        // Hack: if we pretend that we are at the goal, then the code below will trigger
+        // because the current pos is unreachable from there.
+        // path == {apple_pos,INVALID};
+        path.pop_back();
+        pos2 = path.back();
+      }
+    }
     
     // Heuristic 3: prevent making parts of the grid unreachable
     if (detour != DetourStrategy::none) {

@@ -18,10 +18,11 @@ struct Step {
 
 template <typename CanMove>
 Grid<Step> generic_shortest_path(CoordRange dims, CanMove const& can_move, Coord from, Coord to = {-1,-1}) {
-  Grid<Step> out(dims, Step{INT_MAX,INVALID});
+  Grid<Step> out(dims, Step{INT_MAX, NOT_VISITED});
   std::vector<Coord> queue, next;
   queue.push_back(from);
   out[from].dist = 0;
+  out[from].from = ROOT;
   int dist = 0;
   while (!queue.empty()) {
     dist++;
@@ -47,7 +48,8 @@ Grid<Step> shortest_path(Grid<bool> const& grid, Coord from, Coord to = {-1,-1})
 }
 
 Coord first_step(Grid<Step> const& path, Coord from, Coord to) {
-  while (to != Coord{-1,-1} && path[to].from != from) {
+  while (to != ROOT && path[to].from != from) {
+    if (to == NOT_VISITED) break;
     to = path[to].from;
   }
   return to;
@@ -57,8 +59,9 @@ Coord first_step(Grid<Step> const& path, Coord from, Coord to) {
 // Note: returned in reverse order, that is result.back() is the first step, result.front() == to
 std::vector<Coord> read_path(Grid<Step> const& paths, Coord from, Coord to) {
   std::vector<Coord> steps;
-  while (to != Coord{-1,-1} && to != from) {
+  while (to != ROOT && to != from) {
     steps.push_back(to);
+    if (to == NOT_VISITED) break;
     to = paths[to].from;
   }
   return steps;
@@ -120,6 +123,9 @@ Grid<Step> astar_shortest_path(CoordRange dims, Edge const& edges, Coord from, C
 
 template <typename CanMove>
 void flood_fill_go(Grid<bool>& out, CanMove const& can_move, Coord a) {
+  if (!out.valid(a)) {
+    std::cout << "ABOUT TO BREAK THINGS " << a << std::endl;
+  }
   int y = a.y;
   // find left/rightmost points
   int min_x = a.x;
