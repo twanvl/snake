@@ -188,6 +188,8 @@ void draw_path(Grid<std::string>& grid, Path const& path, Color color, bool cycl
   }
 }
 
+bool use_color = true;
+
 std::string white(std::string const& x) {
   return x;
 }
@@ -204,13 +206,13 @@ std::string gray(std::string const& x) {
   return "\033[30;1m" + x + "\033[0m";
 }
 
-void draw_snake(Grid<std::string>& grid, Snake const& snake) {
-  draw_path(grid, snake, green);
+void draw_snake(Grid<std::string>& grid, Snake const& snake, bool color = true) {
+  draw_path(grid, snake, color ? green : white);
 }
 
-Grid<std::string> box_draw_grid(GameBase const& game) {
+Grid<std::string> box_draw_grid(GameBase const& game, bool color = true) {
   Grid<std::string> grid(game.grid.coords(), "·");
-  if (true) {
+  if (color) {
     for (int y=0; y<grid.h; y+=2) {
       for (int x=0; x<grid.w; x+=2) {
         grid[{x,  y  }] = gray("╭");
@@ -220,14 +222,14 @@ Grid<std::string> box_draw_grid(GameBase const& game) {
       }
     }
   }
-  grid[game.apple_pos] = red("●");
+  grid[game.apple_pos] = (color ? red : white)("●");
   draw_snake(grid, game.snake);
   return grid;
 }
 
 std::ostream& operator << (std::ostream& out, Game const& game) {
   out << "turn " << game.turn << ", size " << game.snake.size() << (game.win() ? " WIN!" : game.loss() ? " LOSS" : "") << std::endl;
-  return out << box_draw_grid(game);
+  return out << box_draw_grid(game, use_color);
 }
 
 std::ostream& operator << (std::ostream& out, Grid<bool> const& grid) {

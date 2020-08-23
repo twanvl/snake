@@ -214,6 +214,7 @@ void print_help(const char* name, std::ostream& out = std::cout) {
   out << "      --seed <n>      Random seed." << endl;
   out << "  -T, --trace-all     Print the game state after each move." << endl;
   out << "  -t, --trace         Print the game state each time the snake eats an apple." << endl;
+  out << "      --no-color      Don't use ANSI color codes in trace output" << endl;
   out << "  -q, --quiet         Don't print extra output." << endl;
   out << "  -j, --json <file>   Write log of one run a json file." << endl;
   out << endl;
@@ -250,6 +251,8 @@ void Config::parse_optional_args(int argc, const char** argv) {
       trace = Trace::all;
     } else if (arg == "-q" || arg == "--quiet") {
       quiet = true;
+    } else if (arg == "--no-color") {
+      use_color = false;
     } else{
       throw std::invalid_argument("Unknown argument: " + arg);
     }
