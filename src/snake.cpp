@@ -244,7 +244,6 @@ void write_json(std::ostream& out, std::vector<T> const& xs) {
 }
 
 void write_json(std::ostream& out, AgentFactory const& agent, LoggedGame const& game) {
-  out << "game = ";
   out << "{" << std::endl;
   out << "  \"agent\": \"" << agent.name << "\"," << std::endl;
   out << "  \"agent_description\": \"" << agent.description << "\"," << std::endl;
@@ -252,9 +251,8 @@ void write_json(std::ostream& out, AgentFactory const& agent, LoggedGame const& 
   out << "  \"snake_pos\": "; write_json(out, game.log.snake_pos); out << "," << std::endl;
   out << "  \"snake_size\": "; write_json(out, game.log.snake_size); out << "," << std::endl;
   out << "  \"apple_pos\": "; write_json(out, game.log.apple_pos); out << "," << std::endl;
-  out << "  \"eat_turns\": "; write_json(out, game.log.eat_turns); out << "," << std::endl;
+  out << "  \"eat_turns\": "; write_json(out, game.log.eat_turns); out << std::endl;
   out << "}" << std::endl;
-  out << ";";
 }
 
 void write_json(std::string const& filename, AgentFactory const& agent, LoggedGame const& game) {

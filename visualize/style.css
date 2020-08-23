@@ -1,0 +1,24 @@
+body {
+  background: #333;
+  color: #eee;
+  font-family: sans-serif;
+}
+#root {
+  display: grid;
+  grid-auto-columns: min-content;
+  grid-gap: 10px;
+}
+#anim {
+  grid-column: 1;
+}
+#info {
+  grid-column: 2;
+  width: 400px;
+}
+#info div {
+  margin-bottom: 1em;
+}
+#timeline {
+  grid-column: 1 / 3;
+  grid-row: 2;
+}
