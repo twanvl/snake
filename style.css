@@ -3,6 +3,9 @@ body {
   color: #eee;
   font-family: sans-serif;
 }
+a {
+  color: #88f;
+}
 #root {
   display: grid;
   grid-auto-columns: min-content;
