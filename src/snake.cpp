@@ -36,7 +36,7 @@ class LoggedGame : public Game {
 public:
   Log log;
   
-  LoggedGame(CoordRange dims) : Game(dims) {
+  LoggedGame(CoordRange dims, RNG const& rng) : Game(dims, rng) {
     log.log(*this, Game::Event::none);
   }
   Event move(Dir d) {
@@ -283,13 +283,13 @@ template <typename AgentGen>
 Stats play_multiple(AgentGen make_agent, Config& config) {
   Stats stats;
   for (int i = 0; i < config.num_rounds; ++i) {
-    Game game(config.board_size);
+    Game game(config.board_size, config.rng.next_rng());
     auto agent = make_agent(config);
     play(game, *agent, config);
     stats.add(game);
     if (!config.quiet) {
       if (!game.win()) std::cout << game;
-      std::cout << (i+1) << "/" << config.num_rounds << "  " << stats << "\033[1K\r" << std::flush;
+      std::cout << (i+1) << "/" << config.num_rounds << "  " << stats << "\033[K\r" << std::flush;
     }
   }
   if (!config.quiet) std::cout << "\033[K\r";
@@ -319,7 +319,6 @@ void play_all_agents(Config& config, std::ostream& out = std::cout) {
 //------------------------------------------------------------------------------
 
 int main(int argc, const char** argv) {
-  // Parse command line args
   std::string mode = argc >= 2 ? argv[1] : "help";
   
   try {
@@ -331,14 +330,13 @@ int main(int argc, const char** argv) {
       Config config;
       config.quiet = true;
       config.parse_optional_args(argc-2, argv+2);
-      
       play_all_agents(config);
     } else {
       auto agent = find_agent(mode);
       Config config;
       config.parse_optional_args(argc-2, argv+2);
       if (config.trace != Trace::no || !config.json_file.empty()) {
-        LoggedGame game(config.board_size);
+        LoggedGame game(config.board_size, config.rng.next_rng());
         auto a = agent.make(config);
         play(game, *a, config);
         if (!config.json_file.empty()) {
@@ -354,58 +352,5 @@ int main(int argc, const char** argv) {
     return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;
-  
-  /*
-  if (mode == "")
-  for (int i=1; i<argc; ++i) {
-    std::string arg = argv[i];
-    if (arg
-  }
-  Usage: snake <MODE> [options]
-  MODE can be:
-   * all: play all agents against each other
-   * list: list the agents
-   * help: show help
-   * <AGENT>: play games with agent
-   * [play] <AGENT> [<N>] [<SIZE>]
-   * step <AGENT>
-   * json <AGENT> <FILE>
-  Options:
-   -n N:       number of games (default: 100)
-   -s SIZE:    board size (default: 30)
-   -seed SEED: random seed (default = timestamp)
-  
-  if (mode == "help") {
-    print_help(argv[0]);
-  } else if (mode == "list") {
-    list_agents();
-  } else if (mode == "trace" && argc > 2) {
-  } else if (mode == "play") {
-    play(argv+2, );
-  }
-  */
-  /*
-  //
-  //auto agent = []{return FixedAgent{};};
-  //auto agent = []{return FixedCycleAgent{random_hamiltonian_cycle(global_rng)};};
-  //auto agent = []{return CutAgent{};};
-  //auto agent = []{return CellTreeAgent{};};
-  //auto agent = []{return PerturbedHamiltonianCycle(make_path(board_size));};
-  //auto agent = []{return PerturbedHamiltonianCycle(random_hamiltonian_cycle(board_size, global_rng));};
-  auto agent = []{return DynamicHamiltonianCycleRepair{make_path(board_size)};};
-  
-  if (1) {
-    LoggedGame game(board_size);
-    play(game, agent(), Visualize::no);
-    std::cout << game;
-    
-    write_json("game.json", game);
-  }
-  
-  if (1) {
-    auto stats = play_multiple(agent);
-    std::cout << stats << std::endl;
-  }
-  */
 }
 
