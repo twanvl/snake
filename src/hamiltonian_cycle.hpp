@@ -337,7 +337,7 @@ Grid<int> cycle_distances(GridPath cycle, Coord goal) {
 struct DynamicHamiltonianCycleRepair : Agent {
   GridPath cycle;
   bool recalculate_path = true;
-  const int wall_follow_overshoot = 0; // 0 to disable
+  int wall_follow_overshoot = 0; // 0 to disable
   int wall_follow_mode = 0;
   std::vector<Coord> cached_path;
   
@@ -363,29 +363,48 @@ struct DynamicHamiltonianCycleRepair : Agent {
     };
     auto dists = astar_shortest_path(game.grid.coords(), edge, pos, goal, 1000000);
     auto path = read_path(dists, pos, goal);
-    Coord step = path.back();
-    /*
+    Coord target = path.back();
+    // wall follow/nascar mode
+    // I don't understand what the code is trying to do exactly
     if (wall_follow_overshoot > 0) {
       // would this path make nodes unreachable?
       auto after = after_moves(game, path, Lookahead::many_keep_tail);
-      auto unreachable = unreachables(can_move, after, dists);
+      auto can_move_after = [&](Coord from, Coord to, Dir) {
+        return !after.grid[to];
+      };
+      auto unreachable = unreachables(can_move_after, after, dists);
       if (unreachable.any) {
-        wall_follow_mode = wall_follow_overshoot; // called nascar mode in original code
+        wall_follow_mode = wall_follow_overshoot; // called nascar mode in original code;
       } else if (wall_follow_mode) {
         wall_follow_mode--;
       }
       if (wall_follow_mode > 0) {
-        
+        Coord prev = game.snake.size() <= 1 ? pos + Dir::down : game.snake[1];
+        Dir last_dir = pos - prev;
+        // always go clockwise/counterclockwise
+        Dir turn = rotate_clockwise(last_dir);
+        if (game.grid.is_clear(prev + turn)) {
+          turn = - turn;
+        }
+        if (!game.grid.is_clear(prev + turn)) {
+          if (game.grid.is_clear(pos + turn)) {
+            target = pos + turn;
+          } else if (game.grid.is_clear(pos + last_dir)) {
+            target = pos + last_dir;
+          }
+        }
       }
+    }
+    // find chokepoints
+    /*
+    for (auto p : path) {
     }
     */
     // try to repair hamiltonian cycle
-    if (cycle[pos] != step) {
+    if (cycle[pos] != target) {
       // cycle needs to be changed
-      auto after = after_moves(game, path, Lookahead::one);
-      
-      if (!repair_cycle(after.grid, cycle, pos, path.back())) {
-        // Failed to repair, continue along path
+      if (!repair_cycle(game.grid, cycle, pos, target)) {
+        // Failed to repair, continue along previous cycle
       }
     }
     // move along cycle

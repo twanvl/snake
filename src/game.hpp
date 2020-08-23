@@ -206,11 +206,11 @@ std::string gray(std::string const& x) {
   return "\033[30;1m" + x + "\033[0m";
 }
 
-void draw_snake(Grid<std::string>& grid, Snake const& snake, bool color = true) {
+void draw_snake(Grid<std::string>& grid, Snake const& snake, bool color = use_color) {
   draw_path(grid, snake, color ? green : white);
 }
 
-Grid<std::string> box_draw_grid(GameBase const& game, bool color = true) {
+Grid<std::string> box_draw_grid(GameBase const& game, bool color = use_color) {
   Grid<std::string> grid(game.grid.coords(), "·");
   if (color) {
     for (int y=0; y<grid.h; y+=2) {

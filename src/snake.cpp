@@ -132,6 +132,11 @@ AgentFactory agents[] = {
     auto agent = std::make_unique<DynamicHamiltonianCycleRepair>(make_path(config.board_size));
     return agent;
   }},
+  {"dhcr-nascar", "Dynamic Hamiltonian Cycle Repair with Nascar mode", [](Config& config) {
+    auto agent = std::make_unique<DynamicHamiltonianCycleRepair>(make_path(config.board_size));
+    agent->wall_follow_overshoot = 1;
+    return agent;
+  }},
 };
 
 void list_agents(std::ostream& out = std::cout) {
