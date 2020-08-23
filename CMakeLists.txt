@@ -8,8 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 include_directories("${PROJECT_BINARY_DIR}/src")
 include_directories("${PROJECT_SOURCE_DIR}/src")
 
-#find_package(Curses)
-#include_directories(${CURSES_INCLUDE_DIRS})
+find_package (Threads)
 
 # snake executable
 
@@ -17,8 +16,7 @@ add_executable(snake)
 
 file(GLOB_RECURSE sources src/*.cpp)
 target_sources(snake PRIVATE ${sources})
-
-#target_link_libraries(${PROJECT_NAME} ${CURSES_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} Threads::Threads)
 
 # warnings
 if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)

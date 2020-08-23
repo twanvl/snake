@@ -11,6 +11,8 @@
 #include <iomanip>
 #include <memory>
 #include <functional>
+#include <thread>
+#include <mutex>
 
 //------------------------------------------------------------------------------
 // Logging games
@@ -86,6 +88,7 @@ struct Config {
   CoordRange board_size = {30,30};
   Trace trace = Trace::no;
   bool quiet = false;
+  int num_threads = static_cast<int>(std::thread::hardware_concurrency());
   std::string json_file;
   RNG rng = global_rng;
   
@@ -122,6 +125,13 @@ AgentFactory agents[] = {
   {"cell-fixed", "Cell agent that doesn't recalculate paths", [](Config&) {
     auto agent = std::make_unique<CellTreeAgent>();
     agent->recalculate_path = false;
+    return agent;
+  }},
+  {"cell-variant", "Cell tree agent with penalties on moving in the tree", [](Config&) {
+    auto agent = std::make_unique<CellTreeAgent>();
+    agent->same_cell_penalty = 1;
+    agent->new_cell_penalty = 1;
+    agent->parent_cell_penalty = 0;
     return agent;
   }},
   {"phc", "Perturbed Hamiltonian cycle (zig-zag cycle)", [](Config& config) {
@@ -177,7 +187,8 @@ void print_help(const char* name, std::ostream& out = std::cout) {
   out << "  -t, --trace         Print the game state each time the snake eats an apple." << endl;
   out << "      --no-color      Don't use ANSI color codes in trace output" << endl;
   out << "  -q, --quiet         Don't print extra output." << endl;
-  out << "  -j, --json <file>   Write log of one run a json file." << endl;
+  out << "      --json <file>   Write log of one run a json file." << endl;
+  out << "  -j, --threads <n>   Specify the maximum number of threads (default: " << def.num_threads << ")." << endl;
   out << endl;
   list_agents(out);
 }
@@ -203,7 +214,7 @@ void Config::parse_optional_args(int argc, const char** argv) {
       int seed = std::stoi(argv[++i]);
       uint64_t s[] = {1234567891234567890u,9876543210987654321u+seed};
       rng = RNG(s);
-    } else if (arg == "-j" || arg == "--json") {
+    } else if (arg == "--json") {
       if (i+1 >= argc) throw std::invalid_argument("Missing argument to " + arg);
       json_file = argv[++i];
     } else if (arg == "-t" || arg == "--trace") {
@@ -212,6 +223,9 @@ void Config::parse_optional_args(int argc, const char** argv) {
       trace = Trace::all;
     } else if (arg == "-q" || arg == "--quiet") {
       quiet = true;
+    } else if (arg == "-j" || arg == "--threads" || arg == "--num-threads") {
+      if (i+1 >= argc) throw std::invalid_argument("Missing argument to " + arg);
+      num_threads = std::stoi(argv[++i]);
     } else if (arg == "--no-color") {
       use_color = false;
     } else{
@@ -283,9 +297,49 @@ void play(Game& game, Agent& agent, Config const& config) {
   if (config.trace == Trace::all) std::cout << game;
 }
 
+template <typename AgentGen>
+Stats play_multiple_threaded(AgentGen make_agent, Config& config) {
+  std::mutex mutex;
+  std::vector<std::thread> threads;
+  int remaining = config.num_rounds;
+  Stats stats;
+  for (int thread = 0; thread < config.num_threads; ++thread) {
+    threads.push_back(std::thread([&,thread](){
+      while (true) {
+        std::unique_ptr<Agent> agent;
+        RNG rng;
+        {
+          std::lock_guard<std::mutex> guard(mutex);
+          //std::cout << "thread " << thread << " reamining " << remaining << std::endl;
+          if (remaining <= 0) return;
+          remaining--;
+          agent = make_agent(config); // potentially uses rng
+          rng = config.rng.next_rng();
+        }
+        Game game(config.board_size, rng);
+        play(game, *agent, config);
+        {
+          std::lock_guard<std::mutex> guard(mutex);
+          stats.add(game);
+          if (!config.quiet) {
+            std::cout << stats.wins.size() << "/" << config.num_rounds << "  " << stats << "\033[K\r" << std::flush;
+          }
+        }
+      }
+    }));
+  }
+  // wait
+  for (auto& t : threads) {
+    t.join();
+  }
+  // done
+  if (!config.quiet) std::cout << "\033[K\r";
+  return stats;
+}
 
 template <typename AgentGen>
 Stats play_multiple(AgentGen make_agent, Config& config) {
+  if (config.num_threads > 1) return play_multiple_threaded(make_agent, config);
   Stats stats;
   for (int i = 0; i < config.num_rounds; ++i) {
     Game game(config.board_size, config.rng.next_rng());
@@ -300,6 +354,7 @@ Stats play_multiple(AgentGen make_agent, Config& config) {
   if (!config.quiet) std::cout << "\033[K\r";
   return stats;
 }
+
 
 void play_all_agents(Config& config, std::ostream& out = std::cout) {
   using namespace std;

@@ -375,6 +375,9 @@ double lerp(double a, double b, double t) {
 
 template <typename T>
 std::vector<double> quantiles(std::vector<T> const& xs) {
+  if (xs.empty()) {
+    throw std::invalid_argument("Can't calculate quantiles of empty list");
+  }
   std::vector<T> sorted = xs;
   std::sort(sorted.begin(), sorted.end());
   std::vector<double> quantiles;
