@@ -121,6 +121,8 @@ function init() {
   let agent_lbl = document.getElementById("agent");
   let turn_lbl = document.getElementById("turn");
   let size_lbl = document.getElementById("size");
+  let play_lbl = document.getElementById("playpause");
+  let speed_lbl = document.getElementById("speed");
   let timeline = document.getElementById("timeline");
   let timeline_ctx = timeline.getContext("2d");
 
@@ -165,6 +167,7 @@ function init() {
     if (!animFrame) {
       animFrame = requestAnimationFrame(anim_step);
     }
+    play_lbl.innerText = "pause";
   }
   function pause() {
     playing = false;
@@ -173,6 +176,7 @@ function init() {
       animFrame = undefined;
       prev_timestamp = undefined;
     }
+    play_lbl.innerText = "play";
   }
   
   function play_pause() {
@@ -180,34 +184,68 @@ function init() {
     else play();
   }
   
+  function seek_left(amount) {
+    t = Math.max(0, Math.round(t) - amount);
+    update();
+  }
+  function seek_right(amount) {
+    t = Math.min(game.snake_pos.length-1, Math.round(t) + amount);
+    update();
+  }
+  function seek_home() {
+    t = 0;
+    update();
+  }
+  function seek_end() {
+    t = game.snake_pos.length-1;
+    update();
+  }
+  function update_speed_lbl() {
+    speed_lbl.innerText = " (" + Math.round(speed*1000) + " steps/s)"
+  }
+  function speed_up() {
+    speed *= 1.5;
+    update_speed_lbl();
+  }
+  function speed_down() {
+    speed /= 1.5;
+    update_speed_lbl();
+  }
+  
+  document.getElementById("btn_seek_left").onclick = () => seek_left(10);
+  document.getElementById("btn_seek_right").onclick = () => seek_right(10);
+  document.getElementById("btn_seek_home").onclick = seek_home;
+  document.getElementById("btn_seek_end").onclick = seek_end;
+  document.getElementById("btn_speed_up").onclick = speed_up;
+  document.getElementById("btn_speed_down").onclick = speed_down;
+  document.getElementById("btn_playpause").onclick = play_pause;
+  
   document.onkeydown = function(event) {
     if (!game) return;
     if (event.key == ' ') {
       play_pause();
     } else if (event.key == "ArrowLeft") {
-      t = Math.max(0, t - 100);
-      update();
+      seek_left(event.shiftKey ? 100 : 1);
       event.cancel = true;
     } else if (event.key == "ArrowRight") {
-      t = Math.min(game.snake_pos.length-1, t + 100);
-      update();
+      seek_right(event.shiftKey ? 100 : 1);
       event.cancel = true;
     } else if (event.key == "Home") {
-      t = 0;
-      update();
+      seek_home();
       event.cancel = true;
     } else if (event.key == "End") {
-      t = game.snake_pos.length-1;
-      update();
+      seek_end();
       event.cancel = true;
     } else if (event.key == "ArrowUp") {
-      speed *= 1.5;
+      speed_up();
       event.cancel = true;
     } else if (event.key == "ArrowDown") {
-      speed /= 1.5;
+      speed_down();
       event.cancel = true;
     }
   };
+  
+  
   
   function seek(event) {
     if (!game) return;
@@ -223,7 +261,7 @@ function init() {
     button++;
   };
   timeline.onmouseup = function(event) {
-    button--;
+    button = 0;
   };
   timeline.onmousemove = function(event) {
     if (button > 0) seek(event);
@@ -253,6 +291,7 @@ function init() {
     .then(load)
     .catch(error => console.log(error));
   
+  update_speed_lbl();
   unload();
   update();
 }
