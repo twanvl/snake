@@ -6,6 +6,9 @@ body {
 a {
   color: #88f;
 }
+#anim canvas {
+  background: #222;
+}
 #root {
   display: grid;
   grid-auto-columns: min-content;

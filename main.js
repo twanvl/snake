@@ -11,8 +11,12 @@ function render(ctx, game, t) {
   ctx.save();
   ctx.translate(1,1);
   
+  // position in time
+  t = Math.max(0, Math.min(game.snake_pos.length-1, t));
+  let ti = Math.floor(t);
+  
   // draw grid
-  ctx.strokeStyle = dark ? "#888" : "#ccc";
+  ctx.strokeStyle = dark ? "#666" : "#ccc";
   ctx.lineWidth = 1;
   for (let x=0; x<=game.size[0]; ++x) {
     ctx.lineWidth = x%2 ? 0.8 : 2;
@@ -29,10 +33,41 @@ function render(ctx, game, t) {
     ctx.stroke();
   }
   
-  // position in time
-  t = Math.min(t, game.snake_pos.length-1);
-  let ti = Math.max(0, Math.floor(t));
+  // draw Hamiltonian cycle used by agent at time t
+  function draw_path(path) {
+    ctx.moveTo((path[0][0]+0.5)*scale, (path[0][1]+0.5)*scale);
+    for (let i=1; i<path.length; ++i) {
+      ctx.lineTo((path[i][0]+0.5)*scale, (path[i][1]+0.5)*scale);
+    }
+  }
+  if (game.cycles) {
+    let cycle = game.cycles[ti];
+    if (cycle && cycle.length > 0) {
+      ctx.beginPath();
+      draw_path(cycle);
+      ctx.closePath();
+      ctx.lineWidth = 0.5 * scale;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.strokeStyle = dark ? "#5555" : "#eee8";
+      ctx.stroke();
+    }
+  }
   
+  // draw plan used by agent
+  if (game.plans) {
+    let path = game.plans[ti];
+    if (path && path.length > 0) {
+      ctx.beginPath();
+      draw_path(path);
+      ctx.lineWidth = 0.2 * scale;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.strokeStyle = dark ? "#04f5" : "#35f5";
+      ctx.stroke();
+    }
+  }
+
   // draw apple
   {
     let apple = game.apple_pos[ti];
@@ -54,9 +89,9 @@ function render(ctx, game, t) {
   let len = game.snake_size[ti];
   if (ti+1 < game.snake_size.length) len = lerp(len,game.snake_size[ti+1],t-ti);
   ctx.beginPath();
-  let p = pos(t-len);
+  let p = pos(t-(len-1));
   ctx.moveTo((p[0]+0.5)*scale, (p[1]+0.5)*scale);
-  for (let i=Math.max(0,Math.ceil(t-len)); i<t; ++i) {
+  for (let i=Math.max(0,Math.ceil(t-(len-1))); i<t; ++i) {
     p = game.snake_pos[i];
     ctx.lineTo((p[0]+0.5)*scale, (p[1]+0.5)*scale);
   }
@@ -113,6 +148,25 @@ function render_timeline(ctx, game, t) {
     ctx.moveTo(x,5); ctx.lineTo(x,h-4);
     ctx.stroke();
   }
+}
+
+function decode_path_data(paths, len) {
+  for (let i=0; i<len; ++i) {
+    if (i >= paths.length || paths[i] === 1) {
+      paths[i] = paths[i-1]; // same as previous
+    } else if (paths[i] > 0) {
+      let diff = paths[i]-1;
+      paths[i] = paths[i-1].slice(0, -diff);
+    } else if (paths[i] === 0) {
+      paths[i] = undefined;
+    }
+  }
+}
+function load_game(data) {
+  let game = data;
+  if (game.cycles) decode_path_data(game.cycles, game.snake_pos.length);
+  if (game.plans) decode_path_data(game.plans, game.snake_pos.length);
+  return game;
 }
 
 function init() {
@@ -268,7 +322,8 @@ function init() {
   };
   
   function load(data) {
-    game = data;
+    game = load_game(data);
+    window.game = game; // for debugging
     agent_lbl.innerText = "agent: " + game.agent;
     t = 0;
     play();
@@ -285,7 +340,6 @@ function init() {
   let params = new URLSearchParams(location.search);
   let file = params.get("f");
   if (!file) file = 'examples/cell.json';
-  console.log(file);
   fetch(file)
     .then(response => response.json())
     .then(load)
