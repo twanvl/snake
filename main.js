@@ -69,8 +69,8 @@ function render(ctx, game, t) {
   }
 
   // draw apple
-  {
-    let apple = game.apple_pos[ti];
+  let apple = game.apple_pos_at[ti];
+  if (apple) {
     ctx.beginPath();
     ctx.arc((apple[0]+0.5)*scale, (apple[1]+0.5)*scale, 0.4*scale, 0, 2 * Math.PI);
     ctx.fillStyle = dark ? "#f00" : "#e00";
@@ -150,7 +150,39 @@ function render_timeline(ctx, game, t) {
   }
 }
 
-function decode_path_data(paths, len) {
+function decode_path(data) {
+  if (typeof(data) === "string") {
+    let x = data.charCodeAt(0)-35;
+    let y = data.charCodeAt(1)-35;
+    let path = [[x,y]];
+    function step(d) {
+      if      (d == 0) y--;
+      else if (d == 1) y++;
+      else if (d == 2) x--;
+      else if (d == 3) x++;
+      else console.log("invalid path: " + d);
+      path.push([x,y]);
+    }
+    for (let i=2; i<data.length; ++i) {
+      let d = data.charCodeAt(i)-35;
+      step(d&3);
+      d >>= 2;
+      if (d) {
+        d -= 1;
+        step(d&3);
+        d >>= 2;
+        if (d) {
+          d -= 1;
+          step(d);
+        }
+      }
+    }
+    return path;
+  } else {
+    return data;
+  }
+}
+function decode_paths(paths, len) {
   for (let i=0; i<len; ++i) {
     if (i >= paths.length || paths[i] === 1) {
       paths[i] = paths[i-1]; // same as previous
@@ -159,13 +191,38 @@ function decode_path_data(paths, len) {
       paths[i] = paths[i-1].slice(0, -diff);
     } else if (paths[i] === 0) {
       paths[i] = undefined;
+    } else if (typeof(paths[i]) === "string") {
+      paths[i] = decode_path(paths[i]);
     }
   }
 }
 function load_game(data) {
   let game = data;
-  if (game.cycles) decode_path_data(game.cycles, game.snake_pos.length);
-  if (game.plans) decode_path_data(game.plans, game.snake_pos.length);
+  if (!game.snake_size) {
+    // derive snake length from turns were it eats
+    game.snake_size = []
+    let l = 1;
+    for (let e of game.eat_turns) {
+      while (game.snake_size.length <= e) {
+        game.snake_size.push(l);
+      }
+      l++;
+    }
+  }
+  if (!game.apple_pos_at) {
+    // derive apple_pos at each time from apple pos when apple is eaten
+    game.apple_pos_at = [];
+    let p = 0;
+    for (let e of game.eat_turns) {
+      while (game.apple_pos_at.length < e) {
+        game.apple_pos_at.push(data.apple_pos[p]);
+      }
+      p++;
+    }
+  }
+  game.snake_pos = decode_path(game.snake_pos);
+  if (game.cycles) decode_paths(game.cycles, game.snake_pos.length);
+  if (game.plans) decode_paths(game.plans, game.snake_pos.length);
   return game;
 }
 
