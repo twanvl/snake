@@ -164,3 +164,26 @@ Grid<bool> flood_fill(CoordRange dims, CanMove const& can_move, Coord from) {
   return out;
 }
 
+// flood fill starting at a neihbor of from
+Grid<bool> flood_fill_from_neighbor(Grid<bool> const& grid, Coord from) {
+  Grid<bool> out(grid.dimensions(), false);
+  for (Dir d : dirs) {
+    if (grid.is_clear(from + d)) {
+      flood_fill_go(out, [&](Coord, Coord to, Dir){ return !grid[to]; }, from + d);
+      break;
+    }
+  }
+  return out;
+}
+// flood fill from a single position
+Grid<bool> flood_fill(Grid<bool> const& grid) {
+  Grid<bool> out(grid.dimensions(), false);
+  for (Coord c : grid.coords()) {
+    if (!grid[c]) {
+      flood_fill_go(out, [&](Coord, Coord to, Dir){ return !grid[to]; }, c);
+      break;
+    }
+  }
+  return out;
+}
+
