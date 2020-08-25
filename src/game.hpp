@@ -3,6 +3,7 @@
 #include "util.hpp"
 #include "random.hpp"
 #include <string>
+#include <variant>
 
 //------------------------------------------------------------------------------
 // Game state
@@ -239,13 +240,4 @@ std::ostream& operator << (std::ostream& out, Grid<bool> const& grid) {
   });
   return out << vis;
 }
-
-//------------------------------------------------------------------------------
-// Agents
-//------------------------------------------------------------------------------
-
-struct Agent {
-  virtual ~Agent() {}
-  virtual Dir operator () (Game const& game) = 0;
-};
 

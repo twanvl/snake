@@ -27,7 +27,7 @@ inline std::ostream& operator << (std::ostream& out, Dir dir) {
   }
 }
 
-inline Dir operator - (Dir dir) {
+inline constexpr Dir operator - (Dir dir) {
   switch (dir) {
     case Dir::up:    return Dir::down;
     case Dir::down:  return Dir::up;
@@ -37,7 +37,7 @@ inline Dir operator - (Dir dir) {
   }
 }
 
-inline Dir rotate_clockwise(Dir dir) {
+inline constexpr Dir rotate_clockwise(Dir dir) {
   switch (dir) {
     case Dir::up:    return Dir::right;
     case Dir::down:  return Dir::left;
@@ -47,7 +47,7 @@ inline Dir rotate_clockwise(Dir dir) {
   }
 }
 
-inline Dir rotate_counter_clockwise(Dir dir) {
+inline constexpr Dir rotate_counter_clockwise(Dir dir) {
   switch (dir) {
     case Dir::up:    return Dir::left;
     case Dir::down:  return Dir::right;
@@ -65,14 +65,14 @@ struct Coord {
   int x,y;
 };
 
-inline bool operator == (Coord a, Coord b) {
+inline constexpr bool operator == (Coord a, Coord b) {
   return a.x == b.x && a.y == b.y;
 }
-inline bool operator != (Coord a, Coord b) {
+inline constexpr bool operator != (Coord a, Coord b) {
   return !(a == b);
 }
 
-inline Coord operator + (Coord a, Dir dir) {
+inline constexpr Coord operator + (Coord a, Dir dir) {
   switch (dir) {
     case Dir::up:    return Coord{a.x, a.y-1};
     case Dir::down:  return Coord{a.x, a.y+1};
@@ -98,11 +98,11 @@ inline Dir operator - (Coord a, Coord b) {
   throw std::logic_error("Not a dir");
 }
 
-inline int manhattan_distance(Coord a, Coord b) {
+inline constexpr int manhattan_distance(Coord a, Coord b) {
   return std::abs(a.x - b.x) + std::abs(a.y - b.y);
 }
 
-inline bool is_neighbor(Coord a, Coord b) {
+inline constexpr bool is_neighbor(Coord a, Coord b) {
   return manhattan_distance(a,b) == 1;
 }
 
@@ -148,10 +148,10 @@ struct CoordRange {
   inline iterator end() const {
     return iterator{{0,h},w};
   }
-  inline bool valid(Coord a) const {
+  inline constexpr bool valid(Coord a) const {
     return a.x >= 0 && a.x < w && a.y >= 0 && a.y < h;
   }
-  inline int size() const {
+  inline constexpr int size() const {
     return w * h;
   }
   inline Coord random(RNG& rng) const {

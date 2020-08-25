@@ -1,4 +1,5 @@
-#include "game.hpp"
+#include "agent.hpp"
+#include "game_util.hpp"
 
 //------------------------------------------------------------------------------
 // Agent: Fixed path agent
@@ -23,10 +24,21 @@ Dir zig_zag_path(CoordRange dims, Coord c) {
     }
   }
 }
+// A Hamiltonian cycle
+Grid<Coord> make_zig_zag_path(CoordRange dims) {
+  Grid<Coord> path(dims);
+  for (auto c : dims) {
+    path[c] = c + zig_zag_path(dims, c);
+  }
+  return path;
+}
 
 // Follow a fixed path
 struct FixedZigZagAgent : Agent {
-  Dir operator () (Game const& game) {
+  Dir operator () (Game const& game, AgentLog* log = nullptr) override {
+    if (log && game.turn == 0) {
+      log->add(game.turn, AgentLog::Key::cycle, cycle_to_path(make_zig_zag_path(game.dimensions())));
+    }
     Coord c = game.snake_pos();
     return zig_zag_path(game.grid.coords(), c);
   }
@@ -36,14 +48,6 @@ struct FixedZigZagAgent : Agent {
 // Agent: Fixed path agent (alternative)
 //------------------------------------------------------------------------------
 
-// A Hamiltonian cycle
-Grid<Coord> make_path(CoordRange dims) {
-  Grid<Coord> path(dims);
-  for (auto c : dims) {
-    path[c] = c + zig_zag_path(dims, c);
-  }
-  return path;
-}
 
 // agent that maintains a hamiltonian path
 struct FixedCycleAgent : Agent {
@@ -51,7 +55,10 @@ struct FixedCycleAgent : Agent {
   
   FixedCycleAgent(Grid<Coord> const& path) : path(path) {}
   
-  Dir operator () (Game const& game) {
+  Dir operator () (Game const& game, AgentLog* log = nullptr) override {
+    if (log && game.turn == 0) {
+      log->add(game.turn, AgentLog::Key::cycle, cycle_to_path(path));
+    }
     Coord c = game.snake_pos();
     return path[c] - c;
   }
@@ -71,15 +78,10 @@ bool any(Grid<bool> const& grid, int x0, int x1, int y0, int y1) {
 }
 
 struct CutAgent : Agent {
-  std::vector<int> cuts;
   bool move_right = true;
   bool quick_dir_change = true;
 
-  CutAgent(CoordRange dims)
-    : cuts(dims.w, 1)
-  {}
-
-  Dir operator () (Game const& game) {
+  Dir operator () (Game const& game, AgentLog* log = nullptr) override {
     Coord c = game.snake_pos();
     Coord target = game.apple_pos;
     int w = game.grid.w, h = game.grid.h;

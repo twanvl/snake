@@ -1,141 +1,6 @@
-
-//------------------------------------------------------------------------------
-// Hamiltonian cycles
-// represented as: at each grid point the coordinate of the next point
-//------------------------------------------------------------------------------
-
-using GridPath = Grid<Coord>;
-
-bool is_hamiltonian_cycle(GridPath const& path) {
-  // conditions:
-  //  * each step points to a neighbor
-  //  * after w*h steps we are back at the begining (we have a cycle)
-  //  * and no sooner (cycle has length w*h, so it is the only one)
-  Coord pos = {0,0};
-  for (int i=0; i < path.size(); ++i) {
-    if (!path.valid(path[pos])) return false;
-    if (!is_neighbor(pos, path[pos])) return false;
-    pos = path[pos];
-    if (pos == Coord{0,0}) {
-      return (i == path.size()-1);
-    }
-  }
-  return false;
-}
-
-// Make a Hamiltonian cycle given a w/2 * h/2 tree
-GridPath tree_to_hamiltonian_cycle(Grid<Coord> const& parent) {
-  GridPath path(parent.w*2, parent.h*2, INVALID);
-  for (int y=0; y<path.h; ++y) {
-    for (int x=0; x<path.w; ++x) {
-      Coord c = {x,y};
-      Coord in, out;
-      if (x%2 == 1 && y%2 == 0) { out = c+Dir::up;    in = c+Dir::left; }
-      if (x%2 == 0 && y%2 == 1) { out = c+Dir::down;  in = c+Dir::right; }
-      if (x%2 == 0 && y%2 == 0) { out = c+Dir::left;  in = c+Dir::down; }
-      if (x%2 == 1 && y%2 == 1) { out = c+Dir::right; in = c+Dir::up; }
-      Coord c_cell = {x/2, y/2};
-      Coord o_cell = {out.x/2, out.y/2};
-      assert(!path.valid(out) || o_cell != c_cell);
-      if (path.valid(out) && (parent[o_cell] == c_cell || parent[c_cell] == o_cell)) {
-        path[c] = out;
-      } else {
-        path[c] = in;
-      }
-    }
-  }
-  assert(is_hamiltonian_cycle(path));
-  return path;
-}
-
-Grid<Coord> random_spanning_tree(CoordRange dims, RNG& rng) {
-  Grid<Coord> tree(dims, INVALID);
-  std::vector<std::pair<Coord,Coord>> queue;
-  {
-    Coord node = dims.random(rng);
-    tree[node] = ROOT;
-    for (auto d : dirs) {
-      if (tree.valid(node+d)) queue.push_back({node, node+d});
-    }
-  }
-  while (!queue.empty()) {
-    int i = rng.random(queue.size());
-    Coord parent = queue[i].first;
-    Coord node   = queue[i].second;
-    queue[i] = queue.back();
-    queue.pop_back();
-    if (tree[node] == INVALID) {
-      tree[node] = parent;
-      for (auto d : dirs) {
-        if (tree.valid(node+d)) queue.push_back({node, node+d});
-      }
-    }
-  }
-  return tree;
-}
-
-GridPath random_hamiltonian_cycle(CoordRange dims, RNG& rng) {
-  return tree_to_hamiltonian_cycle(random_spanning_tree({dims.w/2, dims.h/2}, rng));
-}
-
-
-int path_distane(GridPath const& path, Coord from, Coord to) {
-  int dist = 0;
-  while (from != to) {
-    from = path[from];
-    dist++;
-  }
-  return dist;
-}
-
-GridPath reverse(GridPath const& path) {
-  GridPath reverse(path.dimensions(), INVALID);
-  for (auto pos : path.coords()) {
-    reverse[path[pos]] = pos;
-  }
-  return reverse;
-}
-
-Coord path_from(GridPath const& path, Coord to) {
-  if (to.x > 0        && path[{to.x-1, to.y}] == to) return Coord{to.x-1, to.y};
-  if (to.x < path.w-1 && path[{to.x+1, to.y}] == to) return Coord{to.x+1, to.y};
-  if (to.y > 0        && path[{to.x, to.y-1}] == to) return Coord{to.x, to.y-1};
-  if (to.y < path.h-1 && path[{to.x, to.y+1}] == to) return Coord{to.x, to.y+1};
-  throw "No path from neighbor";
-}
-
-// Mark the nodes by setting mark[c]=value for all c on the path from...to (inclusive)
-template <typename T>
-void mark_path(GridPath const& path, Coord from, Coord to, Grid<T>& mark, T value) {
-  mark[from] = value;
-  while (from != to) {
-    from = path[from];
-    mark[from] = value;
-  }
-}
-
-template <typename Color>
-Grid<std::string> draw_cycle(GridPath const& cycle, Color color) {
-  std::vector<Coord> path;
-  for (Coord c = {0,0};;) {
-    path.push_back(c);
-    c = cycle[c];
-    if (c == Coord{0,0}) break;
-  }
-  Grid<std::string> grid(cycle.dimensions(), ".");
-  draw_path(grid, path, color, true);
-  return grid;
-}
-template <typename Color>
-Grid<std::string> draw_cycle2(GridPath const& cycle, Color color) {
-  Grid<std::string> grid(cycle.dimensions(), ".");
-  const char* vis[] = {"↑","↓","←","→"};
-  for (auto c : cycle.coords()) {
-    grid[c] = color(vis[static_cast<int>(cycle[c]-c)]);
-  }
-  return grid;
-}
-
+#include "agent.hpp"
+#include "game_util.hpp"
+#include "shortest_path.hpp"
 
 //------------------------------------------------------------------------------
 // Perturbated Hamiltonian Cycle algorithm
@@ -175,7 +40,10 @@ public:
     else return order_b - order_a + cycle_order.size();
   }
   
-  Dir operator () (Game const& game) {
+  Dir operator () (Game const& game, AgentLog* log = nullptr) override {
+    if (log && game.turn == 0) {
+      log->add(game.turn, AgentLog::Key::cycle, cycle_to_path(cycle));
+    }
     Coord pos = game.snake_pos();
     Coord goal = game.apple_pos;
     Coord next = cycle[pos];
@@ -343,7 +211,7 @@ struct DynamicHamiltonianCycleRepair : Agent {
   
   DynamicHamiltonianCycleRepair(GridPath const& cycle) : cycle(cycle) {}
   
-  Dir operator () (Game const& game) {
+  Dir operator () (Game const& game, AgentLog* log = nullptr) override {
     Coord pos = game.snake_pos();
     Coord goal = game.apple_pos;
     // use cache?
@@ -401,11 +269,24 @@ struct DynamicHamiltonianCycleRepair : Agent {
     }
     */
     // try to repair hamiltonian cycle
+    bool changed_cycle = game.turn == 0;
     if (cycle[pos] != target) {
       // cycle needs to be changed
       if (!repair_cycle(game.grid, cycle, pos, target)) {
         // Failed to repair, continue along previous cycle
+      } else {
+        changed_cycle = true;
       }
+    }
+    if (log) {
+      if (changed_cycle) {
+        log->add(game.turn, AgentLog::Key::cycle, cycle_to_path(cycle));
+      } else {
+        log->add(game.turn, AgentLog::Key::cycle, AgentLog::CopyEntry{});
+      }
+      auto path_copy = path;
+      path_copy.push_back(pos);
+      log->add(game.turn, AgentLog::Key::plan, path_copy);
     }
     // move along cycle
     return cycle[pos] - pos;

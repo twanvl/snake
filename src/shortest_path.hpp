@@ -1,3 +1,5 @@
+#pragma once
+
 #include "util.hpp"
 #include <climits>
 #include <queue>

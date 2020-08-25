@@ -112,7 +112,7 @@ AgentFactory agents[] = {
     return std::make_unique<FixedCycleAgent>(random_hamiltonian_cycle(config.board_size, config.rng));
   }},
   {"zig-zag-cut", "Follows a zig-zag cycle, but can take shortcuts", [](Config& config) {
-    return std::make_unique<CutAgent>(config.board_size);
+    return std::make_unique<CutAgent>();
   }},
   {"cell", "Limit movement to a tree of 2x2 cells", [](Config&) {
     return std::make_unique<CellTreeAgent>();
@@ -120,6 +120,11 @@ AgentFactory agents[] = {
   {"cell1", "Cell tree agent with limited lookahead", [](Config&) {
     auto agent = std::make_unique<CellTreeAgent>();
     agent->lookahead = Lookahead::one;
+    return agent;
+  }},
+  {"cell-keep", "Cell tree agent which doesn't move snake in lookahead", [](Config&) {
+    auto agent = std::make_unique<CellTreeAgent>();
+    agent->lookahead = Lookahead::many_keep_tail;
     return agent;
   }},
   {"cell-fixed", "Cell agent that doesn't recalculate paths", [](Config&) {
@@ -135,15 +140,15 @@ AgentFactory agents[] = {
     return agent;
   }},
   {"phc", "Perturbed Hamiltonian cycle (zig-zag cycle)", [](Config& config) {
-    auto agent = std::make_unique<PerturbedHamiltonianCycle>(make_path(config.board_size));
+    auto agent = std::make_unique<PerturbedHamiltonianCycle>(make_zig_zag_path(config.board_size));
     return agent;
   }},
   {"dhcr", "Dynamic Hamiltonian Cycle Repair", [](Config& config) {
-    auto agent = std::make_unique<DynamicHamiltonianCycleRepair>(make_path(config.board_size));
+    auto agent = std::make_unique<DynamicHamiltonianCycleRepair>(make_zig_zag_path(config.board_size));
     return agent;
   }},
   {"dhcr-nascar", "Dynamic Hamiltonian Cycle Repair with Nascar mode", [](Config& config) {
-    auto agent = std::make_unique<DynamicHamiltonianCycleRepair>(make_path(config.board_size));
+    auto agent = std::make_unique<DynamicHamiltonianCycleRepair>(make_zig_zag_path(config.board_size));
     agent->wall_follow_overshoot = 1;
     return agent;
   }},
@@ -254,9 +259,9 @@ template <typename T>
 void write_json(std::ostream& out, std::vector<T> const& xs) {
   out << "[";
   bool first = true;
-  for (auto x : xs) {
+  for (auto const& x : xs) {
     if (!first) {
-      out << ", ";
+      out << ",";
     }
     first = false;
     write_json(out, x);
@@ -264,7 +269,42 @@ void write_json(std::ostream& out, std::vector<T> const& xs) {
   out << "]";
 }
 
-void write_json(std::ostream& out, AgentFactory const& agent, LoggedGame const& game) {
+void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, AgentLog::NoEntry const& e) {
+  out << 0;
+}
+void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, AgentLog::CopyEntry const& e) {
+  out << 1;
+}
+void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, std::vector<Coord> const& path) {
+  // compare to previous path
+  std::vector<Coord> const* prev_path = std::get_if<std::vector<Coord>>(prev);
+  if (prev_path && prev_path->size() >= path.size()) {
+    if (std::equal(path.begin(), path.end(), prev_path->begin())) {
+      // path is a prefix of previous path, encode more efficiently
+      out << (1 + prev_path->size() - path.size());
+      return;
+    }
+  }
+  // TODO: encode path more efficiently
+  write_json(out,path);
+}
+void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, Grid<bool> const& e) {
+  out << "\"grid\""; // TODO
+}
+void write_json(std::ostream& out, std::vector<AgentLog::LogEntry> const& xs) {
+  out << "[";
+  AgentLog::LogEntry const* prev = nullptr;
+  for (auto const& x : xs) {
+    if (prev) {
+      out << ",";
+    }
+    std::visit([&out,prev](auto const& x){write_json_log(out,prev,x);}, x);
+    prev = &x;
+  }
+  out << "]";
+}
+
+void write_json(std::ostream& out, AgentFactory const& agent, LoggedGame const& game, AgentLog const& agent_log) {
   out << "{" << std::endl;
   out << "  \"agent\": \"" << agent.name << "\"," << std::endl;
   out << "  \"agent_description\": \"" << agent.description << "\"," << std::endl;
@@ -272,13 +312,20 @@ void write_json(std::ostream& out, AgentFactory const& agent, LoggedGame const& 
   out << "  \"snake_pos\": "; write_json(out, game.log.snake_pos); out << "," << std::endl;
   out << "  \"snake_size\": "; write_json(out, game.log.snake_size); out << "," << std::endl;
   out << "  \"apple_pos\": "; write_json(out, game.log.apple_pos); out << "," << std::endl;
-  out << "  \"eat_turns\": "; write_json(out, game.log.eat_turns); out << std::endl;
-  out << "}" << std::endl;
+  out << "  \"eat_turns\": "; write_json(out, game.log.eat_turns);
+  for (int i = 0; i < AgentLog::MAX_KEY; ++i) {
+    if (!agent_log.logs[i].empty()) {
+      out << "," << std::endl;
+      out << "  \"" << AgentLog::key_name((AgentLog::Key)i) << "\": ";
+      write_json(out, agent_log.logs[i]);
+    }
+  }
+   out << std::endl << "}" << std::endl;
 }
 
-void write_json(std::string const& filename, AgentFactory const& agent, LoggedGame const& game) {
+void write_json(std::string const& filename, AgentFactory const& agent, LoggedGame const& game, AgentLog const& agent_log) {
   std::ofstream out(filename);
-  write_json(out, agent, game);
+  write_json(out, agent, game, agent_log);
 }
 
 //------------------------------------------------------------------------------
@@ -290,10 +337,10 @@ enum class Visualize {
 };
 
 template <typename Game>
-void play(Game& game, Agent& agent, Config const& config) {
+void play(Game& game, Agent& agent, Config const& config, AgentLog* log = nullptr) {
   while (!game.done()) {
     if (config.trace == Trace::all) std::cout << game;
-    auto event = game.move(agent(game));
+    auto event = game.move(agent(game,log));
     if (event == Game::Event::eat && config.trace == Trace::eat) std::cout << game;
   }
   if (config.trace == Trace::all) std::cout << game;
@@ -399,10 +446,11 @@ int main(int argc, const char** argv) {
       config.parse_optional_args(argc-2, argv+2);
       if (!config.json_file.empty()) {
         LoggedGame game(config.board_size, config.rng.next_rng());
+        AgentLog agent_log;
         auto a = agent.make(config);
-        play(game, *a, config);
+        play(game, *a, config, &agent_log);
         if (!config.json_file.empty()) {
-          write_json(config.json_file, agent, game);
+          write_json(config.json_file, agent, game, agent_log);
         }
       } else {
         auto stats = play_multiple(agent.make, config);
