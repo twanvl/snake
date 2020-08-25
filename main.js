@@ -54,6 +54,24 @@ function render(ctx, game, t) {
     }
   }
   
+  // draw unreachable cells
+  if (game.unreachables) {
+    let grid = game.unreachables[ti];
+    if (grid && grid.length > 0) {
+      ctx.beginPath();
+      for (let y=0,i=0; y<game.size[1]; ++y) {
+        for (let x=0; x<game.size[0]; ++x,++i) {
+          if (lookup_grid(grid, i)) {
+            ctx.rect(x*scale+1, y*scale+1, scale-2, scale-2);
+            //ctx.rect(x*scale+2, y*scale+2, scale-4, scale-4);
+          }
+        }
+      }
+      ctx.fillStyle = "#ff03";
+      ctx.fill();
+    }
+  }
+  
   // draw plan used by agent
   if (game.plans) {
     let path = game.plans[ti];
@@ -196,6 +214,19 @@ function decode_paths(paths, len) {
     }
   }
 }
+function lookup_grid(data, i) {
+  let d = data.charCodeAt(~~(i/6))-35;
+  return (d & (1 << (i%6))) != 0;
+}
+function decode_grids(grids, len) {
+  for (let i=0; i<len; ++i) {
+    if (i >= grids.length || grids[i] === 1) {
+      grids[i] = grids[i-1]; // same as previous
+    } else if (grids[i] === 0) {
+      grids[i] = undefined;
+    }
+  }
+}
 function load_game(data) {
   let game = data;
   if (!game.snake_size) {
@@ -223,6 +254,7 @@ function load_game(data) {
   game.snake_pos = decode_path(game.snake_pos);
   if (game.cycles) decode_paths(game.cycles, game.snake_pos.length);
   if (game.plans) decode_paths(game.plans, game.snake_pos.length);
+  if (game.unreachables) decode_grids(game.unreachables, game.snake_pos.length);
   return game;
 }
 
