@@ -27,9 +27,11 @@ struct Log {
   void log(Game const& game, Game::Event event) {
     snake_pos.push_back(game.snake_pos());
     snake_size.push_back(game.snake.size());
-    apple_pos.push_back(game.apple_pos);
     if (event == Game::Event::eat) {
       eat_turns.push_back(game.turn);
+    }
+    if (apple_pos.empty() || event == Game::Event::eat) {
+      apple_pos.push_back(game.apple_pos);
     }
   }
 };
@@ -90,6 +92,7 @@ struct Config {
   bool quiet = false;
   int num_threads = static_cast<int>(std::thread::hardware_concurrency());
   std::string json_file;
+  bool json_compact = true;
   RNG rng = global_rng;
   
   void parse_optional_args(int argc, const char** argv);
@@ -193,6 +196,7 @@ void print_help(const char* name, std::ostream& out = std::cout) {
   out << "      --no-color      Don't use ANSI color codes in trace output" << endl;
   out << "  -q, --quiet         Don't print extra output." << endl;
   out << "      --json <file>   Write log of one run a json file." << endl;
+  out << "      --json-full     Don't encode json file to save size." << endl;
   out << "  -j, --threads <n>   Specify the maximum number of threads (default: " << def.num_threads << ")." << endl;
   out << endl;
   list_agents(out);
@@ -235,6 +239,8 @@ void Config::parse_optional_args(int argc, const char** argv) {
       num_threads = std::stoi(argv[++i]);
     } else if (arg == "--no-color") {
       use_color = false;
+    } else if (arg == "--json-full") {
+      json_compact = false;
     } else{
       throw std::invalid_argument("Unknown argument: " + arg);
     }
@@ -269,63 +275,105 @@ void write_json(std::ostream& out, std::vector<T> const& xs) {
   out << "]";
 }
 
-void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, AgentLog::NoEntry const& e) {
+// encode paths as strings to save bandwidth
+//  * coordinates encoded as  '#' + x, '#' + y, since chars after '#' don't need escapes (except for \)
+//  * subsequent coordinates encoded by movement direction (0...3 = Dir::up...Dir::right)
+//  * three dirs fit into a char, '\0' + first + 4*(1 + second + 4*(1 + third))
+//  * this is a hackish variant of base64 encoding
+bool can_encode_path(std::vector<Coord> const& xs) {
+  if (xs.empty() || xs[0].x > 85 || xs[0].y > 85) return false;
+  for (size_t i=1; i<xs.size(); ++i) {
+    if (!is_neighbor(xs[i],xs[i-1])) return false;
+  }
+  return true;
+}
+void encode_char(std::ostream& out, int c) {
+  if (c == '\\') out << "\\\\";
+  else if (c == '\"') out << "\\\"";
+  else out << (char)c;
+}
+void write_json_path(std::ostream& out, std::vector<Coord> const& xs, bool compact) {
+  if (!compact || !can_encode_path(xs)) {
+    write_json(out,xs);
+    return;
+  }
+  out << "\"";
+  encode_char(out, xs[0].x + 35);
+  encode_char(out, xs[0].y + 35);
+  for (size_t i=1; i<xs.size(); i+=3) {
+    int d = 0;
+    if (i+2 < xs.size()) {
+      d = 1 + (int)(xs[i+2] - xs[i+1]) + 4*d;
+    }
+    if (i+1 < xs.size()) {
+      d = 1 + (int)(xs[i+1] - xs[i]) + 4*d;
+    }
+    d = (int)(xs[i] - xs[i-1]) + 4*d;
+    encode_char(out, d + 35);
+  }
+  out << "\"";
+}
+
+void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, AgentLog::NoEntry const& e, bool compact) {
   out << 0;
 }
-void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, AgentLog::CopyEntry const& e) {
+void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, AgentLog::CopyEntry const& e, bool compact) {
   out << 1;
 }
-void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, std::vector<Coord> const& path) {
+void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, std::vector<Coord> const& path, bool compact) {
   // compare to previous path
-  std::vector<Coord> const* prev_path = std::get_if<std::vector<Coord>>(prev);
-  if (prev_path && prev_path->size() >= path.size()) {
-    if (std::equal(path.begin(), path.end(), prev_path->begin())) {
-      // path is a prefix of previous path, encode more efficiently
-      out << (1 + prev_path->size() - path.size());
-      return;
+  if (compact) {
+    std::vector<Coord> const* prev_path = std::get_if<std::vector<Coord>>(prev);
+    if (prev_path && prev_path->size() >= path.size()) {
+      if (std::equal(path.begin(), path.end(), prev_path->begin())) {
+        // path is a prefix of previous path, encode more efficiently
+        out << (1 + prev_path->size() - path.size());
+        return;
+      }
     }
   }
-  // TODO: encode path more efficiently
-  write_json(out,path);
+  write_json_path(out, path, compact);
 }
-void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, Grid<bool> const& e) {
+void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, Grid<bool> const& e, bool compact) {
   out << "\"grid\""; // TODO
 }
-void write_json(std::ostream& out, std::vector<AgentLog::LogEntry> const& xs) {
+void write_json(std::ostream& out, std::vector<AgentLog::LogEntry> const& xs, bool compact) {
   out << "[";
   AgentLog::LogEntry const* prev = nullptr;
   for (auto const& x : xs) {
     if (prev) {
       out << ",";
     }
-    std::visit([&out,prev](auto const& x){write_json_log(out,prev,x);}, x);
+    std::visit([&out,prev,compact](auto const& x){write_json_log(out,prev,x,compact);}, x);
     prev = &x;
   }
   out << "]";
 }
 
-void write_json(std::ostream& out, AgentFactory const& agent, LoggedGame const& game, AgentLog const& agent_log) {
+void write_json(std::ostream& out, AgentFactory const& agent, LoggedGame const& game, AgentLog const& agent_log, bool compact = true) {
   out << "{" << std::endl;
   out << "  \"agent\": \"" << agent.name << "\"," << std::endl;
   out << "  \"agent_description\": \"" << agent.description << "\"," << std::endl;
   out << "  \"size\": "; write_json(out, game.dimensions()); out << "," << std::endl;
-  out << "  \"snake_pos\": "; write_json(out, game.log.snake_pos); out << "," << std::endl;
-  out << "  \"snake_size\": "; write_json(out, game.log.snake_size); out << "," << std::endl;
+  out << "  \"snake_pos\": "; write_json_path(out, game.log.snake_pos, compact); out << "," << std::endl;
+  if (!compact) {
+    out << "  \"snake_size\": "; write_json(out, game.log.snake_size); out << "," << std::endl;
+  }
   out << "  \"apple_pos\": "; write_json(out, game.log.apple_pos); out << "," << std::endl;
   out << "  \"eat_turns\": "; write_json(out, game.log.eat_turns);
   for (int i = 0; i < AgentLog::MAX_KEY; ++i) {
     if (!agent_log.logs[i].empty()) {
       out << "," << std::endl;
       out << "  \"" << AgentLog::key_name((AgentLog::Key)i) << "\": ";
-      write_json(out, agent_log.logs[i]);
+      write_json(out, agent_log.logs[i], compact);
     }
   }
    out << std::endl << "}" << std::endl;
 }
 
-void write_json(std::string const& filename, AgentFactory const& agent, LoggedGame const& game, AgentLog const& agent_log) {
+void write_json(std::string const& filename, AgentFactory const& agent, LoggedGame const& game, AgentLog const& agent_log, bool compact = true) {
   std::ofstream out(filename);
-  write_json(out, agent, game, agent_log);
+  write_json(out, agent, game, agent_log, compact);
 }
 
 //------------------------------------------------------------------------------
@@ -450,7 +498,7 @@ int main(int argc, const char** argv) {
         auto a = agent.make(config);
         play(game, *a, config, &agent_log);
         if (!config.json_file.empty()) {
-          write_json(config.json_file, agent, game, agent_log);
+          write_json(config.json_file, agent, game, agent_log, config.json_compact);
         }
       } else {
         auto stats = play_multiple(agent.make, config);
