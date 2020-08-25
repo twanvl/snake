@@ -286,7 +286,7 @@ struct DynamicHamiltonianCycleRepair : Agent {
       }
       auto path_copy = path;
       path_copy.push_back(pos);
-      log->add(game.turn, AgentLog::Key::plan, path_copy);
+      log->add(game.turn, AgentLog::Key::plan, std::move(path_copy));
     }
     // move along cycle
     return cycle[pos] - pos;

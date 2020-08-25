@@ -131,7 +131,7 @@ public:
     if (log) {
       auto path_copy = path;
       path_copy.push_back(pos);
-      log->add(game.turn, AgentLog::Key::plan, path_copy);
+      log->add(game.turn, AgentLog::Key::plan, std::move(path_copy));
     }
     
     if (pos2 == INVALID) {
@@ -152,6 +152,11 @@ public:
       auto after = after_moves(game, path, lookahead);
       auto unreachable = cell_tree_unreachables(after, dists);
       if (unreachable.any) {
+        if (log) {
+          Grid<bool> unreachable_grid(game.dimensions());
+          std::transform(unreachable.reachable.begin(), unreachable.reachable.end(), unreachable_grid.begin(), [](bool r){ return !r; });
+          log->add(game.turn, AgentLog::Key::unreachable, unreachable_grid);
+        }
         if (detour == DetourStrategy::any) {
           // 3A: move in any other direction
           for (auto dir : dirs) {

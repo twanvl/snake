@@ -313,6 +313,19 @@ void write_json_path(std::ostream& out, std::vector<Coord> const& xs, bool compa
   }
   out << "\"";
 }
+// Encode grids as strings
+// 6 bits fit into a char (base64)
+void write_json_grid(std::ostream& out, Grid<bool> const& xs, bool compact) {
+  out << "\"";
+  for (auto it = xs.begin(); it != xs.end();) {
+    int d = 0;
+    for (size_t j=0; j<6 && it != xs.end() ; ++j, ++it) {
+      if (*it) d |= (1<<j);
+    }
+    encode_char(out, d + 35);
+  }
+  out << "\"";
+}
 
 void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, AgentLog::NoEntry const& e, bool compact) {
   out << 0;
@@ -323,7 +336,7 @@ void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, AgentLog:
 void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, std::vector<Coord> const& path, bool compact) {
   // compare to previous path
   if (compact) {
-    std::vector<Coord> const* prev_path = std::get_if<std::vector<Coord>>(prev);
+    auto prev_path = std::get_if<std::vector<Coord>>(prev);
     if (prev_path && prev_path->size() >= path.size()) {
       if (std::equal(path.begin(), path.end(), prev_path->begin())) {
         // path is a prefix of previous path, encode more efficiently
@@ -334,8 +347,15 @@ void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, std::vect
   }
   write_json_path(out, path, compact);
 }
-void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, Grid<bool> const& e, bool compact) {
-  out << "\"grid\""; // TODO
+void write_json_log(std::ostream& out, AgentLog::LogEntry const* prev, Grid<bool> const& grid, bool compact) {
+  if (compact) {
+    auto prev_grid = std::get_if<Grid<bool>>(prev);
+    if (prev_grid && std::equal(grid.begin(), grid.end(), prev_grid->begin())) {
+      out << 1;
+      return;
+    }
+  }
+  write_json_grid(out, grid, compact);
 }
 void write_json(std::ostream& out, std::vector<AgentLog::LogEntry> const& xs, bool compact) {
   out << "[";
