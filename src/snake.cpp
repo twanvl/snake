@@ -142,35 +142,6 @@ AgentFactory agents[] = {
     agent->parent_cell_penalty = 0;
     return agent;
   }},
-  {"cell-variant-extreme", "Cell tree agent with penalties on moving in the tree", [](Config&) {
-    auto agent = std::make_unique<CellTreeAgent>();
-    agent->same_cell_penalty = 500-1;
-    agent->new_cell_penalty = 2500-1;
-    agent->parent_cell_penalty = 0;
-    return agent;
-  }},
-  {"cell-variant2", "Cell tree agent with penalties on moving in the tree", [](Config&) {
-    auto agent = std::make_unique<CellTreeAgent>();
-    agent->same_cell_penalty = 500-1;
-    agent->new_cell_penalty = 2500-1;
-    agent->parent_cell_penalty = 0;
-    agent->edge_penalty_in = agent->edge_penalty_out = 100;
-    agent->wall_penalty_in = agent->wall_penalty_out = 0;
-    agent->open_penalty_in = agent->open_penalty_out = 100;
-    return agent;
-  }},
-  {"cell-variant3", "Cell tree agent with penalties on moving in the tree", [](Config&) {
-    auto agent = std::make_unique<CellTreeAgent>();
-    /*
-    agent->same_cell_penalty = 1000;
-    agent->new_cell_penalty = 1000;
-    agent->parent_cell_penalty = -1000+1;
-    */
-    agent->same_cell_penalty = 1;
-    agent->new_cell_penalty = 1;
-    agent->open_penalty_out = 100;
-    return agent;
-  }},
   {"phc", "Perturbed Hamiltonian cycle (zig-zag cycle)", [](Config& config) {
     auto agent = std::make_unique<PerturbedHamiltonianCycle>(make_zig_zag_path(config.board_size));
     return agent;
