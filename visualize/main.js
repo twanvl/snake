@@ -14,14 +14,24 @@ function render(ctx, game, t) {
   // position in time
   t = Math.max(0, Math.min(game.snake_pos.length-1, t));
   let ti = Math.floor(t);
+  let ti2 = Math.ceil(t);
   
   // draw grid
   ctx.strokeStyle = dark ? "#666" : "#ccc";
   ctx.lineWidth = 1;
+  let draw_cell_direction = false;
+  let d = 0.15;
   for (let x=0; x<=game.size[0]; ++x) {
     ctx.lineWidth = x%2 ? 0.8 : 2;
     ctx.beginPath();
     ctx.moveTo(x*scale, 0);
+    if (draw_cell_direction && x > 0 && x < game.size[0]) {
+      for (let y=0; y<game.size[1]; ++y) {
+        ctx.lineTo(x*scale, (y+0.5-d)*scale);
+        ctx.lineTo((x+(y%2?d:-d))*scale, (y+0.5)*scale);
+        ctx.lineTo(x*scale, (y+0.5+d)*scale);
+      }
+    }
     ctx.lineTo(x*scale, game.size[1]*scale);
     ctx.stroke();
   }
@@ -29,8 +39,26 @@ function render(ctx, game, t) {
     ctx.lineWidth = y%2 ? 0.8 : 2;
     ctx.beginPath();
     ctx.moveTo(0, y*scale);
+    if (draw_cell_direction && y > 0 && y < game.size[1]) {
+      for (let x=0; x<game.size[0]; ++x) {
+        ctx.lineTo((x+0.5-d)*scale, y*scale);
+        ctx.lineTo((x+0.5)*scale, (y+(x%2?-d:d))*scale);
+        ctx.lineTo((x+0.5+d)*scale, y*scale);
+      }
+    }
     ctx.lineTo(game.size[0]*scale, y*scale);
     ctx.stroke();
+  }
+  // draw cell indicators
+  if (false && game.agent.match(/cell/)) {
+    ctx.lineWidth = 2;
+    for (let x=1; x<game.size[0]; x+=2) {
+      for (let y=1; y<game.size[1]; y+=2) {
+        ctx.beginPath();
+        ctx.arc(x*scale, y*scale, 0.2*scale, 0, 2 * Math.PI);
+        ctx.stroke();
+      }
+    }
   }
   
   // draw Hamiltonian cycle used by agent at time t
@@ -41,7 +69,7 @@ function render(ctx, game, t) {
     }
   }
   if (game.cycles) {
-    let cycle = game.cycles[ti];
+    let cycle = game.cycles[ti2];
     if (cycle && cycle.length > 0) {
       ctx.beginPath();
       draw_path(cycle);
@@ -56,7 +84,7 @@ function render(ctx, game, t) {
   
   // draw unreachable cells
   if (game.unreachables) {
-    let grid = game.unreachables[ti];
+    let grid = game.unreachables[ti2];
     if (grid && grid.length > 0) {
       ctx.beginPath();
       for (let y=0,i=0; y<game.size[1]; ++y) {
@@ -73,7 +101,7 @@ function render(ctx, game, t) {
   
   // draw plan used by agent
   if (game.plans) {
-    let path = game.plans[ti];
+    let path = game.plans[ti2];
     if (path && path.length > 0) {
       ctx.beginPath();
       draw_path(path);
@@ -164,6 +192,88 @@ function render_timeline(ctx, game, t) {
     ctx.beginPath();
     ctx.moveTo(x,5); ctx.lineTo(x,h-4);
     ctx.stroke();
+  }
+}
+
+function render_legend() {
+  let w = 40, h = 20, scale = 20;
+  // snake
+  {
+    let ctx = document.getElementById("legend-snake").getContext("2d");
+    ctx.beginPath();
+    ctx.lineWidth = 0.4 * scale;
+    ctx.strokeStyle = dark ? "#0b0" : "#0a0";
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.moveTo(0.5*scale, 0.5*scale);
+    ctx.lineTo(1.5*scale, 0.5*scale);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc((1+0.5)*scale, (0+0.5)*scale, 0.4*scale, 0, 2 * Math.PI);
+    ctx.fillStyle = dark ? "#0b0" : "#0a0";
+    ctx.fill();
+  }
+  // apple
+  {
+    let ctx = document.getElementById("legend-apple").getContext("2d");
+    ctx.beginPath();
+    ctx.arc(1*scale, 0.5*scale, 0.4*scale, 0, 2 * Math.PI);
+    ctx.fillStyle = dark ? "#f00" : "#e00";
+    ctx.fill();
+  }
+  // plan
+  {
+    let ctx = document.getElementById("legend-plan").getContext("2d");
+    ctx.beginPath();
+    ctx.moveTo(0.2*scale, 0.5*scale);
+    ctx.lineTo(1.8*scale, 0.5*scale);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.lineWidth = 0.3 * scale;
+    ctx.strokeStyle = dark ? "#04f8" : "#35f8";
+    ctx.stroke();
+  }
+  // unreachable
+  {
+    let ctx = document.getElementById("legend-unreachable").getContext("2d");
+    ctx.beginPath();
+    ctx.rect(1, 1, w-2, h-2);
+    ctx.fillStyle = "#ff03";
+    ctx.fill();
+  }
+  // cycle
+  {
+    let ctx = document.getElementById("legend-cycle").getContext("2d");
+    ctx.beginPath();
+    ctx.moveTo(0.4*scale, 0.5*scale);
+    ctx.lineTo(1.6*scale, 0.5*scale);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.lineWidth = 0.6 * scale;
+    ctx.strokeStyle = dark ? "#5555" : "#eee8";
+    ctx.stroke();
+  }
+  // cells
+  {
+    let ctx = document.getElementById("legend-cell").getContext("2d");
+    ctx.fillStyle = dark ? "#222" : "#fff";
+    ctx.fillRect(0,0,w,w);
+    ctx.strokeStyle = dark ? "#666" : "#ccc";
+    for (let x=0;x<=2;++x) {
+      ctx.lineWidth = x%2 ? 0.8 : 2;
+      ctx.beginPath();
+      ctx.moveTo(0.5, 0.5+x*(scale-1));
+      ctx.lineTo(w-0.5, 0.5+x*(scale-1));
+      ctx.moveTo(0.5+x*(scale-1), 0.5);
+      ctx.lineTo(0.5+x*(scale-1), w-0.5);
+      ctx.stroke();
+    }
+    if (false) {
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(scale, scale, 0.2*scale, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
   }
 }
 
@@ -329,6 +439,7 @@ function init() {
   
   function seek_left(amount) {
     t = Math.max(0, Math.round(t) - amount);
+    pause();
     update();
   }
   function seek_right(amount) {
@@ -443,3 +554,4 @@ let stripes = false;
 let dark = true;
 
 init();
+render_legend();
