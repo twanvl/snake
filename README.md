@@ -2,16 +2,7 @@
 
 A bunch of different algorithms that play the game of snake.
 
-    ┌──┐┌────────────┐··
-    ■··│└───────┐····╵··
-    ···└─┐┌┐┌───┘·······
-    ·┌──┐││││···········
-    ·│┌┐│└┘││···········
-    ·│││└──┘│···········
-    ·└┘└───┐│···········
-    ·······│└───┐···●···
-    ·······└────┘·······
-    ····················
+[![example run](github_resources/snake1.png)](https://twanvl.github.io/snake/?f=examples/cell.json)
 
 The snake moves around on a grid. Each time it eats an "apple" the snake grows longer. If the snake hits itself it dies, if the entire grid is filled the game is won.
 

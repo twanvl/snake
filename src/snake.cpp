@@ -142,6 +142,35 @@ AgentFactory agents[] = {
     agent->parent_cell_penalty = 0;
     return agent;
   }},
+  {"cell-variant-extreme", "Cell tree agent with penalties on moving in the tree", [](Config&) {
+    auto agent = std::make_unique<CellTreeAgent>();
+    agent->same_cell_penalty = 500-1;
+    agent->new_cell_penalty = 2500-1;
+    agent->parent_cell_penalty = 0;
+    return agent;
+  }},
+  {"cell-variant2", "Cell tree agent with penalties on moving in the tree", [](Config&) {
+    auto agent = std::make_unique<CellTreeAgent>();
+    agent->same_cell_penalty = 500-1;
+    agent->new_cell_penalty = 2500-1;
+    agent->parent_cell_penalty = 0;
+    agent->edge_penalty_in = agent->edge_penalty_out = 100;
+    agent->wall_penalty_in = agent->wall_penalty_out = 0;
+    agent->open_penalty_in = agent->open_penalty_out = 100;
+    return agent;
+  }},
+  {"cell-variant3", "Cell tree agent with penalties on moving in the tree", [](Config&) {
+    auto agent = std::make_unique<CellTreeAgent>();
+    /*
+    agent->same_cell_penalty = 1000;
+    agent->new_cell_penalty = 1000;
+    agent->parent_cell_penalty = -1000+1;
+    */
+    agent->same_cell_penalty = 1;
+    agent->new_cell_penalty = 1;
+    agent->open_penalty_out = 100;
+    return agent;
+  }},
   {"phc", "Perturbed Hamiltonian cycle (zig-zag cycle)", [](Config& config) {
     auto agent = std::make_unique<PerturbedHamiltonianCycle>(make_zig_zag_path(config.board_size));
     return agent;
@@ -427,7 +456,6 @@ Stats play_multiple_threaded(AgentGen make_agent, Config& config) {
         RNG rng;
         {
           std::lock_guard<std::mutex> guard(mutex);
-          //std::cout << "thread " << thread << " reamining " << remaining << std::endl;
           if (remaining <= 0) return;
           remaining--;
           agent = make_agent(config); // potentially uses rng
@@ -490,7 +518,77 @@ void play_all_agents(Config& config, std::ostream& out = std::cout) {
     out << setw(8) << ((1-mean(stats.wins))*100) << "%" << endl;
   }
 }
-      
+
+//------------------------------------------------------------------------------
+// Optimization
+// This is a hacky algorihtm to optimize algorithm parameters
+//------------------------------------------------------------------------------
+
+struct ParameterizedAgentFactory {
+  std::vector<int> min_param_value;
+  std::vector<int> max_param_value;
+  ParameterizedAgentFactory(size_t num_params, int min_value, int max_value)
+    : min_param_value(num_params, min_value)
+    , max_param_value(num_params, max_value)
+  {}
+  size_t num_params() const { return min_param_value.size(); }
+  virtual std::unique_ptr<Agent> make(std::vector<int> params, Config&) const = 0;
+};
+
+struct ParameterizedCellTreeAgent : ParameterizedAgentFactory {
+  ParameterizedCellTreeAgent() : ParameterizedAgentFactory(9,0,5000) {}
+  
+  std::unique_ptr<Agent> make(std::vector<int> params, Config&) const override {
+    auto agent = std::make_unique<CellTreeAgent>();
+    auto param = params.begin();
+    agent->same_cell_penalty = *param++;
+    agent->new_cell_penalty = *param++;
+    agent->parent_cell_penalty = *param++;
+    agent->edge_penalty_in = *param++;
+    agent->wall_penalty_in = *param++;
+    agent->open_penalty_in = *param++;
+    agent->edge_penalty_out = *param++;
+    agent->wall_penalty_out = *param++;
+    agent->open_penalty_out = *param++;
+    assert(param == params.back());
+    return agent;
+  }
+};
+
+double score(Stats const& stats) {
+  return mean(stats.turns) + 1e10 * (1 - mean(stats.wins));
+}
+
+void optimize_agent(ParameterizedAgentFactory& agent, Config& config, std::ostream& out = std::cout) {
+  using namespace std;
+  int num_runs = 1000;
+  int step_size = 100;
+  double best_score = 1e100;
+  std::vector<int> best_params = agent.min_param_value;
+  for (int i = 0; i < num_runs; ++i) {
+    std::vector<int> params = best_params;
+    size_t which = i % (agent.num_params() + 1);
+    if (which == 0) {
+      // re-run
+    } else {
+      size_t j = which - 1;
+      do {
+        int delta = config.rng.random(step_size*2+1) - step_size;
+        params[j] = std::max(agent.min_param_value[j], std::min(agent.max_param_value[j], params[j] + delta));
+      } while (params[j] == best_params[j]);
+    }
+    auto stats = play_multiple([&agent,&params](Config& config){return agent.make(params, config);}, config);
+    auto score = ::score(stats);
+    std::cout << (which == 0 ? yellow : score < best_score ? green : white)(std::to_string(score));
+    std::cout << ":  " << params;
+    std::cout << std::endl;
+    if (which == 0 || score < best_score) {
+      best_score = score;
+      best_params = params;
+    }
+  }
+}
+
 //------------------------------------------------------------------------------
 // Main
 //------------------------------------------------------------------------------
@@ -508,6 +606,11 @@ int main(int argc, const char** argv) {
       config.quiet = true;
       config.parse_optional_args(argc-2, argv+2);
       play_all_agents(config);
+    } else if (mode == "optimize-cell") {
+      Config config;
+      config.parse_optional_args(argc-2, argv+2);
+      ParameterizedCellTreeAgent agent;
+      optimize_agent(agent, config);
     } else {
       auto agent = find_agent(mode);
       Config config;

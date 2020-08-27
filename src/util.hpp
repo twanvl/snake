@@ -392,10 +392,11 @@ std::vector<double> quantiles(std::vector<T> const& xs) {
   return quantiles;
 }
 
-std::ostream& operator << (std::ostream& out, std::vector<double> xs) {
+template <typename T>
+std::ostream& operator << (std::ostream& out, std::vector<T> const& xs) {
   out << "[";
   bool first = true;
-  for (auto x : xs) {
+  for (auto const& x : xs) {
     if (!first) {
       out << ", ";
     }

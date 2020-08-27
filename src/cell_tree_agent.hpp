@@ -98,6 +98,9 @@ public:
   int same_cell_penalty = 0;
   int new_cell_penalty = 0;
   int parent_cell_penalty = 0;
+  int edge_penalty_in = 0, edge_penalty_out = 0;
+  int wall_penalty_in = 0, wall_penalty_out = 0;
+  int open_penalty_in = 0, open_penalty_out = 0;
 
 private:
   std::vector<Coord> cached_path;
@@ -118,8 +121,13 @@ public:
         // small penalty for moving to same/different cell
         bool to_parent = cell(b) == cell_parents[cell(a)];
         bool to_same   = cell(b) == cell(a);
+        Dir right = rotate_clockwise(dir);
+        bool hugs_edge = !game.grid.valid(b+right);
+        bool hugs_wall = !hugs_edge && game.grid[b+right];
         return 1000
-          + (to_parent ? parent_cell_penalty : to_same ? same_cell_penalty : new_cell_penalty);
+          + (to_parent ? parent_cell_penalty : to_same ? same_cell_penalty : new_cell_penalty)
+          + (to_same ? (hugs_edge ? edge_penalty_in  : hugs_wall ? wall_penalty_in  : open_penalty_in)
+                     : (hugs_edge ? edge_penalty_out : hugs_wall ? wall_penalty_out : open_penalty_out));
       } else {
         return INT_MAX;
       }
