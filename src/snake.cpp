@@ -137,8 +137,8 @@ AgentFactory agents[] = {
   }},
   {"cell-variant", "Cell tree agent with penalties on moving in the tree", [](Config&) {
     auto agent = std::make_unique<CellTreeAgent>();
-    agent->same_cell_penalty = 1;
-    agent->new_cell_penalty = 1;
+    agent->same_cell_penalty = 500-1;
+    agent->new_cell_penalty = 2400;
     agent->parent_cell_penalty = 0;
     return agent;
   }},
