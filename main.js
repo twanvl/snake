@@ -63,7 +63,6 @@ function render(ctx, game, t) {
         for (let x=0; x<game.size[0]; ++x,++i) {
           if (lookup_grid(grid, i)) {
             ctx.rect(x*scale+1, y*scale+1, scale-2, scale-2);
-            //ctx.rect(x*scale+2, y*scale+2, scale-4, scale-4);
           }
         }
       }
@@ -234,11 +233,12 @@ function load_game(data) {
     game.snake_size = []
     let l = 1;
     for (let e of game.eat_turns) {
-      while (game.snake_size.length <= e) {
+      while (game.snake_size.length < e) {
         game.snake_size.push(l);
       }
       l++;
     }
+    game.snake_size.push(l);
   }
   if (!game.apple_pos_at) {
     // derive apple_pos at each time from apple pos when apple is eaten
