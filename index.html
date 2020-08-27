@@ -19,9 +19,16 @@
         <div id="size"></div>
         <div style="margin-top:2em;">
         Use <button id="btn_seek_left">←</button>/<button id="btn_seek_right">→</button> keys
-         and <button id="btn_seek_home">home</button>/<button id="btn_seek_end">end</button> to seek.<br/>
-        Use <button id="btn_speed_up">↑</button>/<button id="btn_speed_down">↓</button> keys to control speed<span id="speed"></span>.<br/>
-        Use <button id="btn_playpause">space</button> to <span id="playpause">play/pause</span>.<br/><br/>
+         and <button id="btn_seek_home">home</button>/<button id="btn_seek_end">end</button> to seek.<br>
+        Use <button id="btn_speed_up">↑</button>/<button id="btn_speed_down">↓</button> keys to control speed<span id="speed"></span>.<br>
+        Use <button id="btn_playpause">space</button> to <span id="playpause">play/pause</span>.<br><br>
+        <canvas id="legend-snake" width="40" height="20">Green</canvas> = snake<br>
+        <canvas id="legend-apple" width="40" height="20">Red</canvas> = apple/goal<br>
+        <canvas id="legend-plan" width="40" height="20">Blue</canvas> = shortest path to goal<br>
+        <canvas id="legend-unreachable" width="40" height="20">Yellow</canvas> = would become unreachable<br>
+        <canvas id="legend-cycle" width="40" height="20">Grey</canvas> = Hamiltonian cycle<br>
+        <canvas id="legend-cell" width="40" height="40"></canvas> = grid cells<br>
+        <br><br>
         See <a href="https://github.com/twanvl/snake/">https://github.com/twanvl/snake/</a>
         </div>
       </div>

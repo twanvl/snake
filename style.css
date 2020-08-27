@@ -24,6 +24,9 @@ a {
 #info div {
   margin-bottom: 1em;
 }
+#info canvas {
+  vertical-align: middle;
+}
 #timeline {
   grid-column: 1 / 3;
   grid-row: 2;
