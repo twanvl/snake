@@ -521,7 +521,7 @@ struct ParameterizedCellTreeAgent : ParameterizedAgentFactory {
     agent->edge_penalty_out = *param++;
     agent->wall_penalty_out = *param++;
     agent->open_penalty_out = *param++;
-    assert(param == params.back());
+    assert(param == params.end());
     return agent;
   }
 };
